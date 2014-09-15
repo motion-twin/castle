@@ -62,7 +62,7 @@ abstract ArrayRead<T>(Array<T>) from Array<T> {
 	}
 
 	public inline function filter(f) {
-		return this.
+		return this.filter(f);
 	}
 
 	@:arrayAccess inline function getIndex( v : Int ) {

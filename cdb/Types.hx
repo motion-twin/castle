@@ -57,6 +57,14 @@ abstract ArrayRead<T>(Array<T>) from Array<T> {
 		return this.copy();
 	}
 
+	public inline function map(f){
+		return this.map(f);
+	}
+
+	public inline function filter(f) {
+		return this.
+	}
+
 	@:arrayAccess inline function getIndex( v : Int ) {
 		return this[v];
 	}
@@ -224,6 +232,10 @@ class IndexId<T,Kind> extends Index<T> {
 		if( id == null ) return null;
 		var v = byId.get(id);
 		return v == null && !opt ? throw "Missing " + name + "." + id : v;
+	}
+
+	public inline function iterator():ArrayIterator<T>{
+		return all.iterator();
 	}
 
 }

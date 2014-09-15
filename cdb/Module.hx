@@ -502,16 +502,5 @@ class Module {
 	}
 
 
-	public inline function map(f){
-		return this.map(f);
-	}
 
-	public inline function filter(f) {
-		return this.
-	}
-
-
-	public inline function iterator():ArrayIterator<T>{
-		return all.iterator();
-	}
 }

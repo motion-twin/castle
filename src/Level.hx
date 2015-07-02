@@ -55,6 +55,7 @@ class Level {
 	var needSave : Bool;
 	var smallPalette : Bool = false;
 	var waitCount : Int;
+	var mouseCapture(default,set) : js.JQuery;
 
 	var view : lvl.Image3D;
 
@@ -111,6 +112,21 @@ class Level {
 			}
 		}
 		return name;
+	}
+
+	function set_mouseCapture(e) {
+		mouseCapture = e;
+		if( e != null ) {
+			function onUp(_) {
+				js.Browser.document.removeEventListener("mouseup", onUp);
+				if( mouseCapture != null ) {
+					mouseCapture.mouseup();
+					mouseCapture = null;
+				}
+			}
+			js.Browser.document.addEventListener("mouseup", onUp);
+		}
+		return e;
 	}
 
 	public function init() {
@@ -268,7 +284,7 @@ class Level {
 			a.pending.push(callb);
 	}
 
-	public function getTileProps(file,stride) {
+	public function getTileProps(file,stride,max) {
 		var p : TilesetProps = Reflect.field(sheet.props.level.tileSets,file);
 		if( p == null ) {
 			p = {
@@ -286,11 +302,15 @@ class Level {
 				for( y in 0...Math.ceil(p.props.length / p.stride) )
 					for( x in 0...p.stride )
 						out[x + y * stride] = p.props[x + y * p.stride];
-				while( out.length > 0 && out[out.length - 1] == null )
+				while( out.length > 0 && (out[out.length - 1] == null || out.length > max) )
 					out.pop();
 				p.props = out;
 				p.stride = stride;
 			}
+			if( p.props.length > max ) p.props.splice(max, p.props.length - max);
+			for( s in p.sets.copy() )
+				if( s.x + s.w > stride || (s.y+s.h)*stride > max )
+					p.sets.remove(s);
 		}
 		return p;
 	}
@@ -313,8 +333,7 @@ class Level {
 		if( content != null ) content.html("");
 		if( view != null ) {
 			view.dispose();
-			var ca = view.getCanvas();
-			ca.parentNode.removeChild(ca);
+			view.viewport.parentNode.removeChild(view.viewport);
 			view = null;
 			for( r in references )
 				r.ref = null;
@@ -364,7 +383,7 @@ class Level {
 		setup();
 
 		var layer = layers[0];
-		var state : LevelState = try haxe.Unserializer.run(js.Browser.getLocalStorage().getItem(sheetPath)) catch( e : Dynamic ) null;
+		var state : LevelState = try haxe.Unserializer.run(js.Browser.getLocalStorage().getItem(sheetPath+"#"+index)) catch( e : Dynamic ) null;
 		if( state != null ) {
 			for( l in layers )
 				if( l.name == state.curLayer ) {
@@ -386,11 +405,12 @@ class Level {
 		setLayer(layer);
 		updateZoom();
 
+		var sc = content.find(".scroll");
 		if( state != null ) {
-			var sc = content.find(".scroll");
 			sc.scrollLeft(state.scrollX);
 			sc.scrollTop(state.scrollY);
 		}
+		sc.scroll();
 	}
 
 	function toColor( v : Int ) {
@@ -429,18 +449,31 @@ class Level {
 				return { k : k, layer : l, index : idx };
 			case Objects(idCol, objs):
 				if( l.images == null ) {
+					var found = [];
 					for( i in 0...objs.length ) {
 						var o = objs[i];
 						var w = l.hasSize ? o.width : 1;
 						var h = l.hasSize ? o.height : 1;
 						if( x >= o.x && y >= o.y && x < o.x + w && y < o.y + h ) {
 							if( l.idToIndex == null )
-								return { k : 0, layer : l, index : i };
-							return { k : l.idToIndex.get(Reflect.field(o, idCol)), layer : l, index : i };
+								found.push( { k : 0, layer : l, index : i } );
+							else
+								found.push({ k : l.idToIndex.get(Reflect.field(o, idCol)), layer : l, index : i });
 						}
 					}
+					// pick small first in case of overlap
+					if( l.hasSize )
+						found.sort(function(f1, f2) {
+							var o1 = objs[f1.index];
+							var o2 = objs[f2.index];
+							return Reflect.compare(o2.width * o2.height,o1.width * o1.height);
+						});
+					if( found.length > 0 )
+						return found.pop();
 				} else {
+					var max = objs.length - 1;
 					for( i in 0...objs.length ) {
+						var i = max - i;
 						var o = objs[i];
 						var k = l.idToIndex.get(Reflect.field(o, idCol));
 						if( k == null ) continue;
@@ -784,15 +817,14 @@ class Level {
 		var scont = content.find(".scrollContent");
 
 		view = lvl.Image3D.getInstance();
-		var ca = view.getCanvas();
-		ca.className = "display";
-		scont.append(ca);
+		scont.append(view.viewport);
 
 		scroll.scroll(function(_) {
 			savePrefs();
+			view.setScrollPos(scroll.scrollLeft() - 20, scroll.scrollTop() - 20);
 		});
 
-		scroll[0].onmousewheel = function(e) {
+		untyped scroll[0].onmousewheel = function(e) {
 			if( e.shiftKey )
 				updateZoom(e.wheelDelta > 0);
 		};
@@ -844,11 +876,19 @@ class Level {
 				if( o == null && randomMode )
 					w = h = 1;
 				mouseDown = { rx : curPos == null ? 0 : (curPos.x % w), ry : curPos == null ? 0 : (curPos.y % h), w : w, h : h };
+				mouseCapture = scroll;
 				if( curPos != null ) {
-					set(curPos.x, curPos.y);
+					set(curPos.x, curPos.y, e.ctrlKey);
 					startPos = Reflect.copy(curPos);
 				}
 			case 3:
+
+				if( selection != null ) {
+					clearSelection();
+					draw();
+					return;
+				}
+
 				var p = pick();
 				if( p != null ) {
 					p.layer.current = p.k;
@@ -870,6 +910,7 @@ class Level {
 			}
 		});
 		content.mouseup(function(e) {
+			mouseCapture = null;
 			onMouseUp(e);
 			if( curPos == null ) {
 				startPos = null;
@@ -902,6 +943,18 @@ class Level {
 				h = py - sy;
 				px = sx;
 				py = sy;
+				if( w < 0 ) {
+					px += w;
+					w = -w;
+				}
+				if( h < 0 ) {
+					py += h;
+					h = -h;
+				}
+				if( !fc ) {
+					w += 1;
+					h += 1;
+				}
 				if( w < 0.5 ) w = fc ? 0.5 : 1;
 				if( h < 0.5 ) h = fc ? 0.5 : 1;
 			}
@@ -1069,11 +1122,32 @@ class Level {
 			var fc = currentLayer.floatCoord;
 			var border = 0;
 			var ccx = fc ? cxf : cx, ccy = fc ? cyf : cy;
+			if( ccx < 0 ) ccx = 0;
+			if( ccy < 0 ) ccy = 0;
+			if( fc ) {
+				if( ccx > width ) ccx = width;
+				if( ccy > height ) ccy = height;
+			} else {
+				if( ccx >= width ) ccx = width - 1;
+				if( ccy >= height ) ccy = height - 1;
+			}
 			if( currentLayer.hasSize && mouseDown != null ) {
 				var px = fc ? startPos.xf : startPos.x;
 				var py = fc ? startPos.yf : startPos.y;
 				var pw = (fc?cxf:cx) - px;
 				var ph = (fc?cyf:cy) - py;
+				if( pw < 0 ) {
+					px += pw;
+					pw = -pw;
+				}
+				if( ph < 0 ) {
+					py += ph;
+					ph = -ph;
+				}
+				if( !fc ) {
+					pw += 1;
+					ph += 1;
+				}
 				if( pw < 0.5 ) pw = fc ? 0.5 : 1;
 				if( ph < 0.5 ) ph = fc ? 0.5 : 1;
 				ccx = px;
@@ -1089,7 +1163,7 @@ class Level {
 			curPos = { x : cx, y : cy, xf : cxf, yf : cyf };
 			content.find(".cursorPosition").text(cx + "," + cy);
 			if( mouseDown != null )
-				set(Std.int(cx/mouseDown.w)*mouseDown.w + mouseDown.rx, Std.int(cy/mouseDown.h)*mouseDown.h + mouseDown.ry);
+				set(Std.int(cx/mouseDown.w)*mouseDown.w + mouseDown.rx, Std.int(cy/mouseDown.h)*mouseDown.h + mouseDown.ry, false);
 			if( deleteMode != null ) doDelete();
 		} else {
 			cursor.hide();
@@ -1102,8 +1176,13 @@ class Level {
 			var ccx = fc ? cxf : cx, ccy = fc ? cyf : cy;
 			if( ccx < 0 ) ccx = 0;
 			if( ccy < 0 ) ccy = 0;
-			if( ccx > width ) ccx = width;
-			if( ccy > height ) ccy = height;
+			if( fc ) {
+				if( ccx > width ) ccx = width;
+				if( ccy > height ) ccy = height;
+			} else {
+				if( ccx >= width ) ccx = width - 1;
+				if( ccy >= height ) ccy = height - 1;
+			}
 			if( !selection.down ) {
 				if( startPos != null ) {
 					selection.x = selection.sx + (ccx - startPos.x);
@@ -1123,6 +1202,10 @@ class Level {
 			selection.y = y0;
 			selection.w = x1 - x0;
 			selection.h = y1 - y0;
+			if( !fc ) {
+				selection.w += 1;
+				selection.h += 1;
+			}
 			setCursor();
 		}
 	}
@@ -1138,7 +1221,8 @@ class Level {
 	function editProps( l : LayerData, index : Int ) {
 		if( !hasProps(l) ) return;
 		var o = Reflect.field(obj, l.name)[index];
-		var popup = J("<div>").addClass("popup").prependTo(content.find(".scrollContent"));
+		var scroll = content.find(".scrollContent");
+		var popup = J("<div>").addClass("popup").prependTo(scroll);
 		J(js.Browser.window).bind("mousedown", function(_) {
 			popup.remove();
 			J(js.Browser.window).unbind("mousedown");
@@ -1170,7 +1254,21 @@ class Level {
 			});
 		}
 
-		popup.css( { marginLeft : Std.int((o.x + 1) * tileSize * zoomView) + "px", marginTop : Std.int((o.y + 1) * tileSize * zoomView) + "px" } );
+		var x = (o.x + 1) * tileSize * zoomView;
+		var y = (o.y + 1) * tileSize * zoomView;
+		var cw = width * tileSize * zoomView;
+		var ch = height * tileSize * zoomView;
+
+		if( x > cw - popup.width() - 30 ) x = cw - popup.width() - 30;
+		if( y > ch - popup.height() - 30 ) y = ch - popup.height() - 30;
+
+		var scroll = content.find(".scroll");
+		if( x < scroll.scrollLeft() + 20 ) x = scroll.scrollLeft() + 20;
+		if( y < scroll.scrollTop() + 20 ) y = scroll.scrollTop() + 20;
+		if( x + popup.width() > scroll.scrollLeft() + scroll.width() - 20 ) x = scroll.scrollLeft() + scroll.width() - 20 - popup.width();
+		if( y + popup.height() > scroll.scrollTop() + scroll.height() - 20) y = scroll.scrollTop() + scroll.height() - 20 - popup.height();
+
+		popup.css( { marginLeft : Std.int(x) + "px", marginTop : Std.int(y) + "px" } );
 	}
 
 	function updateZoom( ?f ) {
@@ -1408,8 +1506,8 @@ class Level {
 			paletteOption("random");
 		case K.LEFT:
 			e.preventDefault();
-			if( l.current % l.stride > l.currentWidth-1 ) {
-				var w = l.currentWidth, h = l.currentHeight;
+			var w = l.currentWidth, h = l.currentHeight;
+			if( l.current % l.stride > w-1 ) {
 				l.current -= w;
 				if( w != 1 || h != 1 ) {
 					l.currentWidth = w;
@@ -1420,8 +1518,8 @@ class Level {
 			}
 		case K.RIGHT:
 			e.preventDefault();
-			if( l.current % l.stride < l.stride - l.currentWidth ) {
-				var w = l.currentWidth, h = l.currentHeight;
+			var w = l.currentWidth, h = l.currentHeight;
+			if( l.current % l.stride < l.stride - w && l.images != null && l.current + w < l.images.length ) {
 				l.current += w;
 				if( w != 1 || h != 1 ) {
 					l.currentWidth = w;
@@ -1432,8 +1530,8 @@ class Level {
 			}
 		case K.DOWN:
 			e.preventDefault();
-			if( l.images != null && l.current + l.stride * l.currentHeight < l.images.length ) {
-				var w = l.currentWidth, h = l.currentHeight;
+			var w = l.currentWidth, h = l.currentHeight;
+			if( l.images != null && l.current + l.stride * h < l.images.length ) {
 				l.current += l.stride * h;
 				if( w != 1 || h != 1 ) {
 					l.currentWidth = w;
@@ -1444,8 +1542,8 @@ class Level {
 			}
 		case K.UP:
 			e.preventDefault();
-			if( l.current >= l.stride * l.currentHeight ) {
-				var w = l.currentWidth, h = l.currentHeight;
+			var w = l.currentWidth, h = l.currentHeight;
+			if( l.current >= l.stride * h ) {
 				l.current -= l.stride * h;
 				if( w != 1 || h != 1 ) {
 					l.currentWidth = w;
@@ -1585,7 +1683,7 @@ class Level {
 		}
 	}
 
-	function set( x, y ) {
+	function set( x, y, replace ) {
 		if( selection != null )
 			return;
 		if( paintMode ) {
@@ -1612,16 +1710,32 @@ class Level {
 						for( dy in 0...putObj.h ) {
 							var k = id + dx + dy * l.stride;
 							var p = (x + dx) + (y + dy) * width;
-							if( data[p] == k || l.blanks[k - 1] ) continue;
-							data[p] = k;
+							var old = data[p];
+							if( old == k || l.blanks[k - 1] ) continue;
+							if( replace && old > 0 ) {
+								for( i in 0...width*height )
+									if( data[i] == old )
+										data[i] = k;
+							} else
+								data[p] = k;
 							changed = true;
 						}
 					changed = true;
 				} else {
 					var p = x + y * width;
-					var id = l.current + Std.random(l.currentWidth) + Std.random(l.currentHeight) * l.stride + 1;
-					if( data[p] == id || l.blanks[id - 1] ) return;
-					data[p] = id;
+					var old = data[p];
+					if( replace && old > 0 ) {
+						for( i in 0...width*height )
+							if( data[i] == old ) {
+								var id = l.current + Std.random(l.currentWidth) + Std.random(l.currentHeight) * l.stride + 1;
+								if( old == id || l.blanks[id - 1] ) continue;
+								data[i] = id;
+							}
+					} else {
+						var id = l.current + Std.random(l.currentWidth) + Std.random(l.currentHeight) * l.stride + 1;
+						if( old == id || l.blanks[id - 1] ) return;
+						data[p] = id;
+					}
 					changed = true;
 				}
 			} else {
@@ -1629,8 +1743,14 @@ class Level {
 					for( dx in 0...l.currentWidth ) {
 						var p = x + dx + (y + dy) * width;
 						var id = l.current + dx + dy * l.stride + 1;
-						if( data[p] == id || l.blanks[id - 1] ) continue;
-						data[p] = id;
+						var old = data[p];
+						if( old == id || l.blanks[id - 1] ) continue;
+						if( replace && old > 0 ) {
+							for( i in 0...width*height )
+								if( data[i] == old )
+									data[i] = id;
+						} else
+							data[p] = id;
 						changed = true;
 					}
 			}
@@ -1666,11 +1786,11 @@ class Level {
 				for( dy in 0...l.currentHeight )
 					for( dx in 0...l.currentWidth )
 						insts.push( { x : x+dx, y : y+dy, o : l.current + dx + dy * l.stride, rot : rotation, flip : flipMode } );
-			inline function getY(i) {
+			inline function getY(i:Instance) {
 				var o = objs.get(i.o);
 				return Std.int( (i.y + (o == null ? 1 : o.h)) * tileSize);
 			}
-			inline function getX(i) {
+			inline function getX(i:Instance) {
 				var o = objs.get(i.o);
 				return Std.int( (i.x + (o == null ? 0.5 : o.w * 0.5)) * tileSize );
 			}
@@ -1845,7 +1965,7 @@ class Level {
 			rotation : rotation,
 			flipMode : flipMode,
 		};
-		js.Browser.getLocalStorage().setItem(sheetPath, haxe.Serializer.run(state));
+		js.Browser.getLocalStorage().setItem(sheetPath+"#"+index, haxe.Serializer.run(state));
 	}
 
 	@:keep function scale( s : Float ) {
@@ -1958,7 +2078,7 @@ class Level {
 	function setLayerMode( mode : LayerMode ) {
 		var l = currentLayer;
 		if( l.tileProps == null ) {
-			js.Lib.alert("Choose file first");
+			js.Browser.alert("Choose file first");
 			return;
 		}
 		var old = l.props.mode;
@@ -2100,7 +2220,7 @@ class Level {
 			}
 			var s = l.getTileProp(m);
 			if( s != null ) {
-				var v = try model.parseDynamic(val) catch( e : Dynamic ) null;
+				var v = val == null ? s.opts.value : try model.parseDynamic(val) catch( e : Dynamic ) null;
 				if( v == null )
 					Reflect.deleteField(s.opts, "value");
 				else
@@ -2147,7 +2267,7 @@ class Level {
 	}
 
 	function getPaletteProp() {
-		if( paletteMode == null || paletteMode.substr(0, 2) == "t_" )
+		if( paletteMode == null || paletteMode.substr(0, 2) == "t_" || currentLayer.tileProps == null )
 			return null;
 		for( c in perTileProps )
 			if( c.name == paletteMode )
@@ -2272,6 +2392,9 @@ class Level {
 		var curPreview = -1;
 		var start = { x : l.current % l.stride, y : Std.int(l.current / l.stride), down : false };
 		jsel.mousedown(function(e) {
+
+			palette.find("input[type=text]:focus").blur();
+
 			var o = jsel.offset();
 			var x = Std.int((e.pageX - o.left) / (tileSize*paletteZoom + 1));
 			var y = Std.int((e.pageY - o.top) / (tileSize*paletteZoom + 1));
@@ -2301,6 +2424,7 @@ class Level {
 							return;
 						}
 				start.down = true;
+				mouseCapture = jsel;
 				l.current = x + y * l.stride;
 				setCursor();
 			}
@@ -2349,18 +2473,26 @@ class Level {
 			var o = jsel.offset();
 			var x = Std.int((e.pageX - o.left) / (tileSize * paletteZoom + 1));
 			var y = Std.int((e.pageY - o.top) / (tileSize * paletteZoom + 1));
-			content.find(".cursorPosition").text(x + "," + y);
+			var infos = x + "," + y;
 
 			var id = x + y * l.stride;
 			if( id >= l.images.length || l.blanks[id] ) {
 				curPreview = -1;
 				jpreview.hide();
-			} else if( curPreview != id ) {
-				curPreview = id;
-				jpreview.show();
-				ipreview.fill(0xFF400040);
-				ipreview.copyFrom(l.images[id]);
+			} else {
+				if( curPreview != id ) {
+					curPreview = id;
+					jpreview.show();
+					ipreview.fill(0xFF400040);
+					ipreview.copyFrom(l.images[id]);
+				}
+				if( l.names != null )
+					infos += " "+l.names[id];
 			}
+			if( l.tileProps != null )
+				content.find(".cursorPosition").text(infos);
+			else
+				palette.find(".infos").text(infos);
 
 			if( !start.down ) return;
 			var x0 = x < start.x ? x : start.x;
@@ -2375,13 +2507,17 @@ class Level {
 		});
 
 		jsel.mouseleave(function(e) {
-			content.find(".cursorPosition").text("");
+			if( l.tileProps != null )
+				content.find(".cursorPosition").text("");
+			else
+				palette.find(".infos").text("");
 			curPreview = -1;
 			jpreview.hide();
 		});
 
 		jsel.mouseup(function(e) {
 			start.down = false;
+			mouseCapture = null;
 		});
 		paletteSelect = select;
 		setCursor();
@@ -2632,7 +2768,7 @@ class Level {
 				marginLeft : Std.int(selection.x * tileSize * zoomView - 1) + "px",
 				marginTop : Std.int(selection.y * tileSize * zoomView) + "px",
 				width : Std.int(selection.w * tileSize * zoomView) + "px",
-				height : Std.int(selection.h * size) + "px"
+				height : Std.int(selection.h * tileSize * zoomView) + "px"
 			});
 			return;
 		}

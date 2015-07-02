@@ -201,7 +201,7 @@ class LayerData extends LayerGfx {
 						continue;
 					}
 					if( v != v2 ) dirty = true;
-					insts.push({ x : x, y : y, o : v, flip : flip, rot : rot });
+					insts.push({ x : x, y : y, o : v2, flip : flip, rot : rot });
 				}
 				this.data = TileInstances(d, insts);
 				hasRotFlip = true;
@@ -209,7 +209,7 @@ class LayerData extends LayerGfx {
 			}
 			this.stride = d.stride = w;
 			height = h;
-			tileProps = level.getTileProps(file, w);
+			tileProps = level.getTileProps(file, w, w*h);
 			loadState();
 			level.waitDone();
 		});

@@ -8,6 +8,8 @@ typedef Prefs = {
 
 typedef Index = { id : String, disp : String, obj : Dynamic }
 
+typedef HistoryElement = { d : String, o : String };
+
 class Model {
 
 	var prefs : Prefs;
@@ -17,9 +19,9 @@ class Model {
 	var tmap : Map< String, CustomType >;
 	var openedList : Map<String,Bool>;
 
-	var curSavedData : String;
-	var history : Array<String>;
-	var redo : Array<String>;
+	var curSavedData : HistoryElement;
+	var history : Array<HistoryElement>;
+	var redo : Array<HistoryElement>;
 	var r_ident : EReg;
 
 	function new() {
@@ -30,10 +32,7 @@ class Model {
 			curFile : null,
 			curSheet : 0,
 		};
-		try {
-			prefs = haxe.Unserializer.run(js.Browser.getLocalStorage().getItem("prefs"));
-		} catch( e : Dynamic ) {
-		}
+		loadPrefs();
 	}
 
 	public function getImageData( key : String ) : String {
@@ -206,42 +205,23 @@ class Model {
 			}
 		}
 
-		if( history ) {
-			var sdata = quickSave();
-			if( sdata != curSavedData ) {
-				if( curSavedData != null ) {
-					this.history.push(curSavedData);
-					this.redo = [];
-					if( this.history.length > 100 ) this.history.shift();
-				}
-				curSavedData = sdata;
-			}
+		var sdata = quickSave();
+		if( history && (curSavedData == null || sdata.d != curSavedData.d || sdata.o != curSavedData.o) ) {
+			this.history.push(curSavedData);
+			this.redo = [];
+			if( this.history.length > 100 || sdata.d.length * (this.history.length + this.redo.length) * 2 > 300<<20 ) this.history.shift();
+			curSavedData = sdata;
 		}
 		if( prefs.curFile == null )
 			return;
-		var save = [];
-		for( s in data.sheets ) {
-			for( c in s.columns ) {
-				save.push(c.type);
-				if( c.typeStr == null ) c.typeStr = cdb.Parser.saveType(c.type);
-				Reflect.deleteField(c, "type");
-			}
+		try {
+			sys.io.File.saveContent(prefs.curFile, sdata.d);
+		} catch( e : Dynamic ) {
+			// retry once after EBUSY
+			haxe.Timer.delay(function() {
+				sys.io.File.saveContent(prefs.curFile, sdata.d);
+			},500);
 		}
-		for( t in data.customTypes )
-			for( c in t.cases )
-				for( a in c.args ) {
-					save.push(a.type);
-					if( a.typeStr == null ) a.typeStr = cdb.Parser.saveType(a.type);
-					Reflect.deleteField(a, "type");
-				}
-		sys.io.File.saveContent(prefs.curFile, untyped haxe.Json.stringify(data, null, "\t"));
-		for( s in this.data.sheets )
-			for( c in s.columns )
-				c.type = save.shift();
-		for( t in data.customTypes )
-			for( c in t.cases )
-				for( a in c.args )
-					a.type = save.shift();
 	}
 
 	function saveImages() {
@@ -256,14 +236,16 @@ class Model {
 			sys.io.File.saveContent(path, untyped haxe.Json.stringify(imageBank, null, "\t"));
 	}
 
-	function quickSave() {
-		return haxe.Serializer.run({ d : data, o : openedList });
+	function quickSave() : HistoryElement {
+		return {
+			d : cdb.Parser.save(data),
+			o : haxe.Serializer.run(openedList),
+		};
 	}
 
-	function quickLoad(sdata) {
-		var t = haxe.Unserializer.run(sdata);
-		data = t.d;
-		openedList = t.o;
+	function quickLoad(sdata:HistoryElement) {
+		data = cdb.Parser.parse(sdata.d);
+		openedList = haxe.Unserializer.run(sdata.o);
 	}
 
 	function moveLine( sheet : Sheet, index : Int, delta : Int ) : Null<Int> {
@@ -586,13 +568,17 @@ class Model {
 		return data.compress;
 	}
 
+	function error( msg ) {
+		js.Browser.alert(msg);
+	}
+
 	function load(noError = false) {
 		history = [];
 		redo = [];
 		try {
 			data = cdb.Parser.parse(sys.io.File.getContent(prefs.curFile));
 		} catch( e : Dynamic ) {
-			if( !noError ) js.Lib.alert(e);
+			if( !noError ) error(Std.string(e));
 			prefs.curFile = null;
 			prefs.curSheet = 0;
 			data = {
@@ -673,6 +659,13 @@ class Model {
 		for( f in Reflect.fields(imageBank) )
 			if( !used.get(f) )
 				Reflect.deleteField(imageBank, f);
+	}
+
+	function loadPrefs() {
+		try {
+			prefs = haxe.Unserializer.run(js.Browser.getLocalStorage().getItem("prefs"));
+		} catch( e : Dynamic ) {
+		}
 	}
 
 	function savePrefs() {

@@ -239,8 +239,12 @@ class Main extends Model {
 					var v : Dynamic = Reflect.field(obj1, c1.name);
 					if( f == null )
 						v = getDefault(c2);
-					else if( f.f != null )
-						v = f.f(v);
+					else {
+						// make a deep copy to erase references
+						if( v != null ) v = haxe.Json.parse(haxe.Json.stringify(v));
+						if( f.f != null )
+							v = f.f(v);
+					}
 					if( v == null && !c2.opt )
 						v = getDefault(c2);
 					if( v == null )
@@ -484,9 +488,9 @@ class Main extends Model {
 
 			for( c in sheet.columns ) {
 				var v : Dynamic = Reflect.field(obj, c.name);
+				if( v == null ) continue;
 				switch( c.type ) {
 				case TLayer(_):
-					if( v == null || v == "" ) continue;
 					var v : cdb.Types.Layer<Int> = v;
 					var odat = v.decode([for( i in 0...256 ) i]);
 					var ndat = [];
@@ -546,10 +550,6 @@ class Main extends Model {
 			}
 		}
 		save();
-	}
-
-	function error( msg ) {
-		js.Lib.alert(msg);
 	}
 
 	function setErrorMessage( ?msg ) {
@@ -1026,6 +1026,9 @@ class Main extends Model {
 			});
 			i.blur(function(_) {
 				var nv = i.val();
+				var old = val;
+				var prevObj = c.type == TId && old != null ? smap.get(sheet.name).index.get(val) : null;
+				var prevTarget = null;
 				if( nv == "" && c.opt ) {
 					if( val != null ) {
 						val = html = null;
@@ -1050,7 +1053,8 @@ class Main extends Model {
 					}
 					if( val2 != val && val2 != null ) {
 
-						if( c.type == TId && val != null ) {
+						prevTarget = smap.get(sheet.name).index.get(val2);
+						if( c.type == TId && val != null && (prevObj == null || prevObj.obj == obj) ) {
 							var m = new Map();
 							m.set(val, val2);
 							updateRefs(sheet, m);
@@ -1063,6 +1067,11 @@ class Main extends Model {
 					}
 				}
 				editDone();
+				// handle #DUP in case we change the first element (creates a dup or removes one)
+				if( c.type == TId && prevObj != null && old != val && ((prevObj.obj == obj && smap.get(sheet.name).index.get(old) != null) || (prevTarget != null && smap.get(sheet.name).index.get(val).obj != prevTarget.obj)) ) {
+					refresh();
+					return;
+				}
 			});
 			switch( c.type ) {
 			case TCustom(t):
@@ -1274,7 +1283,7 @@ class Main extends Model {
 			}
 		}
 		var e = l[0];
-		if( e != null ) e.scrollIntoViewIfNeeded();
+		if( e != null ) untyped e.scrollIntoViewIfNeeded();
 	}
 
 	function refresh() {
@@ -1292,7 +1301,7 @@ class Main extends Model {
 	public function chooseFile( callb : String -> Void, ?cancel : Void -> Void ) {
 
 		if( prefs.curFile == null ) {
-			js.Lib.alert("Please save CDB file first");
+			error("Please save CDB file first");
 			if( cancel != null ) cancel();
 			return;
 		}
@@ -1394,6 +1403,7 @@ class Main extends Model {
 				}
 			});
 			cols.append(col);
+
 			var ctype = "t_" + types[Type.enumIndex(c.type)];
 			for( index in 0...sheet.lines.length ) {
 				var obj = sheet.lines[index];
@@ -1632,6 +1642,12 @@ class Main extends Model {
 			}
 		}
 
+		if( sheet.lines.length == 0 ) {
+			var l = J('<tr><td colspan="${sheet.columns.length + 1}"><a href="javascript:_.insertLine()">Insert Line</a></td></tr>');
+			l.find("a").click(function() setCursor(sheet));
+			lines.push(l);
+		}
+
 		if( sheet.props.level != null ) {
 			var col = J("<td style='width:35px'>");
 			cols.prepend(col);
@@ -1661,7 +1677,7 @@ class Main extends Model {
 
 		var snext = 0;
 		for( i in 0...lines.length ) {
-			if( sheet.separators[snext] == i ) {
+			while( sheet.separators[snext] == i ) {
 				var sep = J("<tr>").addClass("separator").append('<td colspan="${colCount+1}">').appendTo(content);
 				var content = sep.find("td");
 				var title = if( sheet.props.separatorTitles != null ) sheet.props.separatorTitles[snext] else null;
@@ -2254,19 +2270,148 @@ class Main extends Model {
 		if( prefs.curFile == null )
 			return;
 		var fileTime = getFileTime();
-		if( fileTime != lastSave && fileTime != 0 ) {
-			if( js.Browser.window.confirm("The CDB file has been modified. Reload?") ) {
-				if( sys.io.File.getContent(prefs.curFile).indexOf("<<<<<<<") >= 0 ) {
-					error("The file has conflicts, please resolve them before reloading");
-					return;
-				}
-				load();
-			} else
-				lastSave = fileTime;
+		if( fileTime != lastSave && fileTime != 0 )
+			load();
+	}
+
+	var hasResolveError = false;
+
+	function resolveConflict() {
+
+		var minRev = 0, maxRev = 0;
+		var basePath = prefs.curFile.split("\\").join("/").split("/").pop();
+		for( f in sys.FileSystem.readDirectory(prefs.curFile.substr(0, -basePath.length)) ) {
+			if( StringTools.startsWith(f, basePath + ".r") ) {
+				var rev = Std.parseInt(f.substr(basePath.length + 2));
+				if( minRev == 0 || minRev > rev ) minRev = rev;
+				if( maxRev == 0 || maxRev < rev ) maxRev = rev;
+			}
 		}
+		inline function parse(file) {
+			return haxe.Json.parse(sys.io.File.getContent(file));
+		}
+		var merged = sys.io.File.getContent(prefs.curFile).split("<<<<<<< .mine");
+
+		// no conflict : it was already resolved by hand, but not marked as resolved
+		if( merged.length == 1 )
+			return true;
+
+		var endConflict = ~/>>>>>>> \.r[0-9]+[\r\n]+/;
+		for( i in 1...merged.length ) {
+			endConflict.match(merged[i]);
+			merged[i] = endConflict.matchedLeft().split("=======").shift() + endConflict.matchedRight();
+		}
+		var mine = haxe.Json.parse(merged.join(""));
+		var origin = parse(prefs.curFile+".r" + minRev);
+		var other = parse(prefs.curFile+".r" + maxRev);
+		hasResolveError = false;
+		try {
+			resolveRec(mine, origin, other, []);
+		} catch( e : String ) {
+			error(e);
+			hasResolveError = true;
+		}
+		if( hasResolveError )
+			return false;
+
+		// resolve successful, let's overwrite
+		// create a backup (just in case)
+		try {
+			sys.io.File.saveContent(Sys.getEnv("TEMP") + "/" + basePath + ".merged" + minRev + "_" + maxRev, sys.io.File.getContent(prefs.curFile));
+		} catch( e : Dynamic ) {
+		}
+		sys.io.File.saveContent(prefs.curFile, haxe.Json.stringify(other, null, "\t"));
+		sys.FileSystem.deleteFile(prefs.curFile+".mine");
+		sys.FileSystem.deleteFile(prefs.curFile+".r"+minRev);
+		sys.FileSystem.deleteFile(prefs.curFile+".r"+maxRev);
+		return true;
+	}
+
+	function resolveError( message : String, path : Array<String> ) {
+		error(message+"\n  in\n" + path.join("."));
+		hasResolveError = true;
+	}
+
+	function resolveRec( mine : Dynamic, origin : Dynamic, other : Dynamic, path : Array<String> ) {
+		if( mine == origin || mine == other )
+			return other;
+		if( other == origin )
+			return mine;
+		if( Std.is(mine, Array) ) {
+			var target = other;
+			if( origin == null ) {
+				origin = []; // was inserted by mine
+				if( target == null ) target = other = []; // create in other as well
+			} else if( target == null )
+				target = []; // let's check for conflict if we have changed origin, don't copy to other
+			else if( other.length != mine.length )
+				resolveError("Array resize conflict",path);
+			for( i in 0...mine.length ) {
+				var mv = mine[i];
+				var name = Reflect.field(mv, "id");
+				if( name == null ) name = Reflect.field(mv, "name");
+				path.push(Std.is(name,String) ? name+"#"+i : "[" + i + "]");
+				target[i] = resolveRec(mv, origin[i], target[i], path);
+				path.pop();
+			}
+		} else if( Reflect.isObject(mine) && !Std.is(mine, String) ) {
+			var target = other;
+			if( origin == null ) {
+				origin = { };
+				if( other == null ) target = other = { };
+			} else if( target == null )
+				target = { };
+			for( f in Reflect.fields(target) )
+				if( !Reflect.hasField(mine, f) )
+					Reflect.setField(mine, f, null);
+			for( f in Reflect.fields(mine) ) {
+				path.push(f);
+				Reflect.setField(target, f, resolveRec(Reflect.field(mine, f), Reflect.field(origin, f), Reflect.field(target, f), path));
+				path.pop();
+			}
+		} else {
+			if( Std.is(mine, String) && Std.is(other, String) ) {
+				try {
+					var dorigin = cdb.Lz4Reader.decodeString(origin);
+					var dmine = cdb.Lz4Reader.decodeString(mine);
+					var dother = cdb.Lz4Reader.decodeString(other);
+					if( dorigin.length != dmine.length || dorigin.length != dother.length ) throw "resized";
+					for( i in 0...dorigin.length ) {
+						var mine = dmine.get(i);
+						var origin = dorigin.get(i);
+						var other = dother.get(i);
+						if( mine == origin || mine == other ) continue;
+						if( other == origin )
+							dother.set(i, mine);
+						else
+							throw "conflict";
+					}
+					// merged
+					return cdb.Lz4Reader.encodeBytes(dother, other.substr(0, 5) == "BCJNG");
+				} catch( e : Dynamic ) {
+					// manual merging fallback
+				}
+			}
+			function display(v:Dynamic) {
+				var str = Std.string(v);
+				if( str.length > 50 ) str = str.substr(0, 50) + "...";
+				return str;
+			}
+			var r = js.Browser.window.confirm('A conflict has been found in ${path.join(".")}\nOrigin = ${display(origin)}    Mine = ${display(mine)}    Other = ${display(other)}\nDo you want to keep your changes (OK) or discard them (CANCEL) ?\n\n');
+			if( !js.Browser.window.confirm('Are you sure ?') )
+				throw "Resolve aborted";
+			if( r ) other = mine;
+		}
+		return other;
 	}
 
 	override function load(noError = false) {
+
+		if( sys.FileSystem.exists(prefs.curFile+".mine") && !resolveConflict() ) {
+			error("CDB file has unresolved conflict, merge by hand before reloading.");
+			return;
+		}
+
 		super.load(noError);
 		lastSave = getFileTime();
 		mcompress.checked = data.compress;

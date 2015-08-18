@@ -18,6 +18,7 @@ enum ColumnType {
 	TTilePos;
 	TTileLayer;
 	TDynamic;
+	TLocalString;
 }
 
 #if macro

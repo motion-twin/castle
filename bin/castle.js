@@ -3206,7 +3206,7 @@ Level.prototype = {
 				case 4:
 					v = parseFloat(val);
 					break;
-				case 1:
+				case 1:case 17:
 					v = val;
 					break;
 				case 16:
@@ -3738,7 +3738,7 @@ Level.prototype = {
 							}
 						}
 						break;
-					case 3:case 4:case 1:case 11:case 13:case 16:
+					case 3:case 4:case 1:case 17:case 11:case 13:case 16:
 						var k5 = 0;
 						var _g24 = 0;
 						var _g18 = l.height;
@@ -3901,7 +3901,7 @@ Level.prototype = {
 							})(i3));
 						}
 						break;
-					case 3:case 4:case 1:case 16:
+					case 3:case 4:case 1:case 17:case 16:
 						m.addClass("m_value");
 						var p4 = this.getTileProp(l.current % l.stride,l.current / l.stride | 0,false);
 						var v4;
@@ -4072,27 +4072,7 @@ List.prototype = {
 		}
 		return false;
 	}
-	,iterator: function() {
-		return new _$List_ListIterator(this.h);
-	}
 	,__class__: List
-};
-var _$List_ListIterator = function(head) {
-	this.head = head;
-	this.val = null;
-};
-$hxClasses["_List.ListIterator"] = _$List_ListIterator;
-_$List_ListIterator.__name__ = ["_List","ListIterator"];
-_$List_ListIterator.prototype = {
-	hasNext: function() {
-		return this.head != null;
-	}
-	,next: function() {
-		this.val = this.head[0];
-		this.head = this.head[1];
-		return this.val;
-	}
-	,__class__: _$List_ListIterator
 };
 var K = function() { };
 $hxClasses["K"] = K;
@@ -4245,7 +4225,7 @@ Model.prototype = {
 			switch(_g[1]) {
 			case 3:case 4:case 5:case 10:case 11:
 				return 0;
-			case 1:case 0:case 7:case 12:case 13:
+			case 1:case 17:case 0:case 7:case 12:case 13:
 				return "";
 			case 6:
 				var s = _g[2];
@@ -4547,43 +4527,10 @@ Model.prototype = {
 		var conv = null;
 		if(Type.enumEq(old,t)) return { f : null};
 		switch(old[1]) {
-		case 3:
-			switch(t[1]) {
-			case 4:
-				break;
-			case 1:
-				conv = Std.string;
-				break;
-			case 2:
-				conv = function(v) {
-					return v != 0;
-				};
-				break;
-			case 5:
-				var values = t[2];
-				conv = function(i) {
-					if(i < 0 || i >= values.length) return null; else return i;
-				};
-				break;
-			case 11:
-				conv = function(i1) {
-					return i1;
-				};
-				break;
-			default:
-				return null;
-			}
-			break;
-		case 0:case 6:case 12:
-			switch(t[1]) {
-			case 1:
-				break;
-			default:
-				return null;
-			}
-			break;
 		case 1:
 			switch(t[1]) {
+			case 1:case 17:
+				break;
 			case 0:case 6:case 12:
 				var r_invalid = new EReg("[^A-Za-z0-9_]","g");
 				conv = function(r) {
@@ -4605,19 +4552,97 @@ Model.prototype = {
 				};
 				break;
 			case 5:
-				var values1 = t[2];
+				var values = t[2];
 				var map = new haxe_ds_StringMap();
 				var _g1 = 0;
-				var _g = values1.length;
+				var _g = values.length;
 				while(_g1 < _g) {
-					var i2 = _g1++;
-					var key = values1[i2].toLowerCase();
-					if(__map_reserved[key] != null) map.setReserved(key,i2); else map.h[key] = i2;
+					var i = _g1++;
+					var key = values[i].toLowerCase();
+					if(__map_reserved[key] != null) map.setReserved(key,i); else map.h[key] = i;
 				}
 				conv = function(s1) {
 					var key1 = s1.toLowerCase();
 					return __map_reserved[key1] != null?map.getReserved(key1):map.h[key1];
 				};
+				break;
+			default:
+				return null;
+			}
+			break;
+		case 17:
+			switch(t[1]) {
+			case 1:case 17:
+				break;
+			case 0:case 6:case 12:
+				var r_invalid1 = new EReg("[^A-Za-z0-9_]","g");
+				conv = function(r) {
+					return r_invalid1.replace(r,"_");
+				};
+				break;
+			case 3:
+				conv = Std.parseInt;
+				break;
+			case 4:
+				conv = function(str) {
+					var f1 = parseFloat(str);
+					if(isNaN(f1)) return null; else return f1;
+				};
+				break;
+			case 2:
+				conv = function(s) {
+					return s != "";
+				};
+				break;
+			case 5:
+				var values1 = t[2];
+				var map1 = new haxe_ds_StringMap();
+				var _g11 = 0;
+				var _g2 = values1.length;
+				while(_g11 < _g2) {
+					var i1 = _g11++;
+					var key2 = values1[i1].toLowerCase();
+					if(__map_reserved[key2] != null) map1.setReserved(key2,i1); else map1.h[key2] = i1;
+				}
+				conv = function(s1) {
+					var key3 = s1.toLowerCase();
+					return __map_reserved[key3] != null?map1.getReserved(key3):map1.h[key3];
+				};
+				break;
+			default:
+				return null;
+			}
+			break;
+		case 3:
+			switch(t[1]) {
+			case 4:
+				break;
+			case 1:case 17:
+				conv = Std.string;
+				break;
+			case 2:
+				conv = function(v) {
+					return v != 0;
+				};
+				break;
+			case 5:
+				var values2 = t[2];
+				conv = function(i2) {
+					if(i2 < 0 || i2 >= values2.length) return null; else return i2;
+				};
+				break;
+			case 11:
+				conv = function(i3) {
+					return i3;
+				};
+				break;
+			default:
+				return null;
+			}
+			break;
+		case 0:case 6:case 12:
+			switch(t[1]) {
+			case 1:case 17:
 				break;
 			default:
 				return null;
@@ -4630,7 +4655,7 @@ Model.prototype = {
 					if(b) return 1; else return 0;
 				};
 				break;
-			case 1:
+			case 1:case 17:
 				conv = Std.string;
 				break;
 			default:
@@ -4642,7 +4667,7 @@ Model.prototype = {
 			case 3:
 				conv = Std["int"];
 				break;
-			case 1:
+			case 1:case 17:
 				conv = Std.string;
 				break;
 			case 2:
@@ -4658,44 +4683,44 @@ Model.prototype = {
 			switch(t[1]) {
 			case 5:
 				var values11 = old[2];
-				var values2 = t[2];
-				var map1 = [];
-				var _g2 = 0;
+				var values21 = t[2];
+				var map2 = [];
+				var _g21 = 0;
 				var _g32 = this.makePairs((function($this) {
 					var $r;
 					var _g3 = [];
 					{
-						var _g21 = 0;
-						var _g11 = values11.length;
-						while(_g21 < _g11) {
-							var i3 = _g21++;
-							_g3.push({ name : values11[i3], i : i3});
+						var _g22 = 0;
+						var _g12 = values11.length;
+						while(_g22 < _g12) {
+							var i4 = _g22++;
+							_g3.push({ name : values11[i4], i : i4});
 						}
 					}
 					$r = _g3;
 					return $r;
 				}(this)),(function($this) {
 					var $r;
-					var _g12 = [];
+					var _g13 = [];
 					{
 						var _g31 = 0;
-						var _g22 = values2.length;
-						while(_g31 < _g22) {
-							var i4 = _g31++;
-							_g12.push({ name : values2[i4], i : i4});
+						var _g23 = values21.length;
+						while(_g31 < _g23) {
+							var i5 = _g31++;
+							_g13.push({ name : values21[i5], i : i5});
 						}
 					}
-					$r = _g12;
+					$r = _g13;
 					return $r;
 				}(this)));
-				while(_g2 < _g32.length) {
-					var p = _g32[_g2];
-					++_g2;
+				while(_g21 < _g32.length) {
+					var p = _g32[_g21];
+					++_g21;
 					if(p.b == null) continue;
-					map1[p.a.i] = p.b.i;
+					map2[p.a.i] = p.b.i;
 				}
-				conv = function(i5) {
-					return map1[i5];
+				conv = function(i6) {
+					return map2[i6];
 				};
 				break;
 			case 3:
@@ -4704,8 +4729,8 @@ Model.prototype = {
 			case 10:
 				var val1 = old[2];
 				var val2 = t[2];
-				if(Std.string(val1) == Std.string(val2)) conv = function(i6) {
-					return 1 << i6;
+				if(Std.string(val1) == Std.string(val2)) conv = function(i7) {
+					return 1 << i7;
 				}; else return null;
 				break;
 			default:
@@ -4716,47 +4741,47 @@ Model.prototype = {
 			switch(t[1]) {
 			case 10:
 				var values12 = old[2];
-				var values21 = t[2];
-				var map2 = [];
-				var _g23 = 0;
+				var values22 = t[2];
+				var map3 = [];
+				var _g24 = 0;
 				var _g34 = this.makePairs((function($this) {
 					var $r;
 					var _g4 = [];
 					{
-						var _g24 = 0;
-						var _g13 = values12.length;
-						while(_g24 < _g13) {
-							var i7 = _g24++;
-							_g4.push({ name : values12[i7], i : i7});
+						var _g25 = 0;
+						var _g14 = values12.length;
+						while(_g25 < _g14) {
+							var i8 = _g25++;
+							_g4.push({ name : values12[i8], i : i8});
 						}
 					}
 					$r = _g4;
 					return $r;
 				}(this)),(function($this) {
 					var $r;
-					var _g14 = [];
+					var _g15 = [];
 					{
 						var _g33 = 0;
-						var _g25 = values21.length;
-						while(_g33 < _g25) {
-							var i8 = _g33++;
-							_g14.push({ name : values21[i8], i : i8});
+						var _g26 = values22.length;
+						while(_g33 < _g26) {
+							var i9 = _g33++;
+							_g15.push({ name : values22[i9], i : i9});
 						}
 					}
-					$r = _g14;
+					$r = _g15;
 					return $r;
 				}(this)));
-				while(_g23 < _g34.length) {
-					var p1 = _g34[_g23];
-					++_g23;
+				while(_g24 < _g34.length) {
+					var p1 = _g34[_g24];
+					++_g24;
 					if(p1.b == null) continue;
-					map2[p1.a.i] = p1.b.i;
+					map3[p1.a.i] = p1.b.i;
 				}
-				conv = function(i9) {
+				conv = function(i10) {
 					var out = 0;
 					var k = 0;
-					while(i9 >= 1 << k) {
-						if(map2[k] != null && (i9 & 1 << k) != 0) out |= 1 << map2[k];
+					while(i10 >= 1 << k) {
+						if(map3[k] != null && (i10 & 1 << k) != 0) out |= 1 << map3[k];
 						k++;
 					}
 					return out;
@@ -4772,8 +4797,8 @@ Model.prototype = {
 		case 11:
 			switch(t[1]) {
 			case 3:
-				conv = function(i1) {
-					return i1;
+				conv = function(i3) {
+					return i3;
 				};
 				break;
 			default:
@@ -5130,7 +5155,7 @@ Model.prototype = {
 		case 0:case 6:case 12:case 13:
 			if(esc) return "\"" + Std.string(val) + "\""; else return val;
 			break;
-		case 1:
+		case 1:case 17:
 			var val1 = val;
 			if(new EReg("^[A-Za-z0-9_]+$","g").match(val1) && !esc) return val1; else return "\"" + val1.split("\\").join("\\\\").split("\"").join("\\\"") + "\"";
 			break;
@@ -5197,7 +5222,7 @@ Model.prototype = {
 		case 3:
 			if(new EReg("^-?[0-9]+$","").match(val)) return Std.parseInt(val);
 			break;
-		case 1:
+		case 1:case 17:
 			if(HxOverrides.cca(val,0) == 34) {
 				var esc = false;
 				var p = 1;
@@ -6605,7 +6630,7 @@ Main.prototype = $extend(Model.prototype,{
 					return $r;
 				}(this))).obj == obj) return v; else return "<span class=\"error\">#DUP(" + Std.string(v) + ")</span>";
 				break;
-			case 1:case 12:
+			case 1:case 12:case 17:
 				if(v == "") return "&nbsp;"; else return StringTools.htmlEscape(v);
 				break;
 			case 6:
@@ -6810,7 +6835,7 @@ Main.prototype = $extend(Model.prototype,{
 		{
 			var _g2 = c.type;
 			switch(_g2[1]) {
-			case 0:case 1:case 5:case 10:
+			case 0:case 1:case 17:case 5:case 10:
 				var conv = new nodejs_webkit_MenuItem({ label : "Convert"});
 				var cm = new nodejs_webkit_Menu();
 				var _g11 = 0;
@@ -7104,7 +7129,7 @@ Main.prototype = $extend(Model.prototype,{
 		{
 			var _g1 = c.type;
 			switch(_g1[1]) {
-			case 3:case 4:case 1:case 0:case 9:case 16:
+			case 3:case 4:case 1:case 0:case 9:case 16:case 17:
 				v.empty();
 				var i = js.JQuery("<input>");
 				v.addClass("edit");
@@ -7204,9 +7229,9 @@ Main.prototype = $extend(Model.prototype,{
 							}
 						}
 						if(val2 != val && val2 != null) {
-							var this11 = _g.smap.get(sheet.name).index;
+							var this2 = _g.smap.get(sheet.name).index;
 							var key1 = val2;
-							prevTarget = this11.get(key1);
+							prevTarget = this2.get(key1);
 							if(c.type == cdb_ColumnType.TId && val != null && (prevObj == null || prevObj.obj == obj)) {
 								var m = new haxe_ds_StringMap();
 								var key2 = val;
@@ -7223,14 +7248,14 @@ Main.prototype = $extend(Model.prototype,{
 					editDone();
 					if(c.type == cdb_ColumnType.TId && prevObj != null && old1 != val && (prevObj.obj == obj && (function($this) {
 						var $r;
-						var this12 = _g.smap.get(sheet.name).index;
-						$r = this12.get(old1);
+						var this3 = _g.smap.get(sheet.name).index;
+						$r = this3.get(old1);
 						return $r;
 					}(this)) != null || prevTarget != null && ((function($this) {
 						var $r;
-						var this13 = _g.smap.get(sheet.name).index;
+						var this4 = _g.smap.get(sheet.name).index;
 						var key3 = val;
-						$r = this13.get(key3);
+						$r = this4.get(key3);
 						return $r;
 					}(this))).obj != prevTarget.obj)) {
 						_g.refresh();
@@ -8353,6 +8378,9 @@ Main.prototype = $extend(Model.prototype,{
 		case "string":
 			t = cdb_ColumnType.TString;
 			break;
+		case "localstring":
+			t = cdb_ColumnType.TLocalString;
+			break;
 		case "bool":
 			t = cdb_ColumnType.TBool;
 			break;
@@ -9110,7 +9138,7 @@ Type.enumEq = function(a,b) {
 	}
 	return true;
 };
-var cdb_ColumnType = $hxClasses["cdb.ColumnType"] = { __ename__ : ["cdb","ColumnType"], __constructs__ : ["TId","TString","TBool","TInt","TFloat","TEnum","TRef","TImage","TList","TCustom","TFlags","TColor","TLayer","TFile","TTilePos","TTileLayer","TDynamic"] };
+var cdb_ColumnType = $hxClasses["cdb.ColumnType"] = { __ename__ : ["cdb","ColumnType"], __constructs__ : ["TId","TString","TBool","TInt","TFloat","TEnum","TRef","TImage","TList","TCustom","TFlags","TColor","TLayer","TFile","TTilePos","TTileLayer","TDynamic","TLocalString"] };
 cdb_ColumnType.TId = ["TId",0];
 cdb_ColumnType.TId.toString = $estr;
 cdb_ColumnType.TId.__enum__ = cdb_ColumnType;
@@ -9152,6 +9180,9 @@ cdb_ColumnType.TTileLayer.__enum__ = cdb_ColumnType;
 cdb_ColumnType.TDynamic = ["TDynamic",16];
 cdb_ColumnType.TDynamic.toString = $estr;
 cdb_ColumnType.TDynamic.__enum__ = cdb_ColumnType;
+cdb_ColumnType.TLocalString = ["TLocalString",17];
+cdb_ColumnType.TLocalString.toString = $estr;
+cdb_ColumnType.TLocalString.__enum__ = cdb_ColumnType;
 var cdb__$Data_TileMode_$Impl_$ = {};
 $hxClasses["cdb._Data.TileMode_Impl_"] = cdb__$Data_TileMode_$Impl_$;
 cdb__$Data_TileMode_$Impl_$.__name__ = ["cdb","_Data","TileMode_Impl_"];
@@ -9360,7 +9391,7 @@ cdb_Parser.saveType = function(t) {
 	case 10:
 		var values1 = t[2];
 		return t[1] + ":" + values1.join(",");
-	case 0:case 1:case 8:case 3:case 7:case 4:case 2:case 11:case 13:case 14:case 15:case 16:
+	case 0:case 1:case 8:case 3:case 7:case 4:case 2:case 11:case 13:case 14:case 15:case 16:case 17:
 		return Std.string(t[1]);
 	}
 };
@@ -9426,6 +9457,8 @@ cdb_Parser.getType = function(str) {
 		return cdb_ColumnType.TTileLayer;
 	case 16:
 		return cdb_ColumnType.TDynamic;
+	case 17:
+		return cdb_ColumnType.TLocalString;
 	default:
 		throw new js__$Boot_HaxeError("Unknown type " + str);
 	} else throw new js__$Boot_HaxeError("Unknown type " + str);
@@ -10147,6 +10180,12 @@ cdb__$Types_ArrayRead_$Impl_$.castArray = function(this1) {
 cdb__$Types_ArrayRead_$Impl_$.toArrayCopy = function(this1) {
 	return this1.slice();
 };
+cdb__$Types_ArrayRead_$Impl_$.map = function(this1,f) {
+	return this1.map(f);
+};
+cdb__$Types_ArrayRead_$Impl_$.filter = function(this1,f) {
+	return this1.filter(f);
+};
 cdb__$Types_ArrayRead_$Impl_$.getIndex = function(this1,v) {
 	return this1[v];
 };
@@ -10312,6 +10351,9 @@ cdb_IndexId.prototype = $extend(cdb_Index.prototype,{
 		if(id == null) return null;
 		var v = this.byId.get(id);
 		if(v == null && !opt) throw new js__$Boot_HaxeError("Missing " + this.name + "." + id); else return v;
+	}
+	,iterator: function() {
+		return new cdb__$Types_ArrayIterator(this.all);
 	}
 	,__class__: cdb_IndexId
 });
@@ -12009,7 +12051,7 @@ var lvl_Image3D = function(w,h) {
 	this.canvas.setAttribute("width",2048 + "px");
 	this.canvas.setAttribute("height",2048 + "px");
 	this.colorCache = new haxe_ds_IntMap();
-	this.curDraw = new Float32Array(174768);
+	this.curDraw = new Float32Array(16 * Math.ceil(10922.6666666666661));
 	this.curIndex = new Uint16Array(65536);
 };
 $hxClasses["lvl.Image3D"] = lvl_Image3D;

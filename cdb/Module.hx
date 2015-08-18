@@ -122,7 +122,7 @@ class Module {
 				case TInt, TColor: macro : Int;
 				case TFloat: macro : Float;
 				case TBool: macro : Bool;
-				case TString, TFile: macro : String;
+				case TString, TLocalString, TFile: macro : String;
 				case TList:
 					var t = makeTypeName(s.name + "@" + c.name).toComplex();
 					macro : cdb.Types.ArrayRead<$t>;
@@ -157,7 +157,7 @@ class Module {
 				case TInt, TEnum(_), TFlags(_), TColor: macro : Int;
 				case TFloat: macro : Float;
 				case TBool: macro : Bool;
-				case TString, TRef(_), TImage, TId, TFile: macro : String;
+				case TString, TLocalString, TRef(_), TImage, TId, TFile: macro : String;
 				case TCustom(_): macro : Array<Dynamic>;
 				case TList:
 					var t = (makeTypeName(s.name+"@"+c.name) + "Def").toComplex();
@@ -181,7 +181,7 @@ class Module {
 				});
 
 				switch( c.type ) {
-				case TInt, TFloat, TString, TBool, TImage, TColor, TFile, TTilePos, TDynamic:
+				case TInt, TFloat, TString, TLocalString, TBool, TImage, TColor, TFile, TTilePos, TDynamic:
 					var cname = c.name;
 					fields.push({
 						name : "get_"+c.name,
@@ -385,7 +385,7 @@ class Module {
 								var t = switch( a.type ) {
 								case TInt: macro : Int;
 								case TFloat: macro : Float;
-								case TString: macro : String;
+								case TString, TLocalString: macro : String;
 								case TBool: macro : Bool;
 								case TCustom(name): name.toComplex();
 								case TRef(name): makeTypeName(name).toComplex();
@@ -410,7 +410,7 @@ class Module {
 				for( ai in 0...c.args.length ) {
 					var a = c.args[ai];
 					var econv = switch( a.type ) {
-					case TId, TString, TBool, TInt, TFloat, TImage, TEnum(_), TFlags(_), TColor, TFile, TTileLayer, TDynamic:
+					case TId, TString, TLocalString, TBool, TInt, TFloat, TImage, TEnum(_), TFlags(_), TColor, TFile, TTileLayer, TDynamic:
 						macro v[$v { ai + 1 } ];
 					case TCustom(id):
 						if( a.opt )

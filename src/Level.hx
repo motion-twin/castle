@@ -2207,7 +2207,7 @@ class Level {
 				var v : Dynamic = switch( p.type ) {
 				case TInt: Std.parseInt(val);
 				case TFloat: Std.parseFloat(val);
-				case TString: val;
+				case TString, TLocalString: val;
 				case TDynamic: try model.parseDynamic(val) catch( e : Dynamic ) null;
 				default: throw "assert";
 				}
@@ -2617,7 +2617,7 @@ class Level {
 							if( v == null || v == def ) continue;
 							paletteSelect.fillRect(x * (tsize + 1), y * (tsize + 1), tsize, tsize, colorPalette[v] | 0x80000000);
 						}
-				case TInt, TFloat, TString, TColor, TFile, TDynamic:
+				case TInt, TFloat, TString, TLocalString, TColor, TFile, TDynamic:
 					var k = 0;
 					for( y in 0...l.height )
 						for( x in 0...l.stride ) {
@@ -2728,7 +2728,7 @@ class Level {
 								setCursor();
 							});
 						}
-					case TInt, TFloat, TString, TDynamic:
+					case TInt, TFloat, TString, TLocalString, TDynamic:
 						m.addClass("m_value");
 						var p = getTileProp(l.current % l.stride, Std.int(l.current / l.stride),false);
 						var v = p == null ? null : Reflect.field(p, prop.name);

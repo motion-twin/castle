@@ -574,6 +574,8 @@ class Main extends Model {
 			var ps = sheet.getSub(c);
 			var out : Array<String> = [];
 			var size = 0;
+			var key = sheet.getPath() + "@" + c.name;
+			var listSheet = getSheet(key);
 			for( v in a ) {
 				var vals = [];
 				for( c in ps.columns )
@@ -581,7 +583,13 @@ class Main extends Model {
 					case TList, TProperties:
 						continue;
 					default:
-						vals.push(valueHtml(c, Reflect.field(v, c.name), ps, v));
+						if( listSheet.props.displayColumn==null || listSheet.props.displayColumn==c.name )
+							vals.push(valueHtml(c, Reflect.field(v, c.name), ps, v));
+							//vals.push(s.props.displayColumn);
+						//if( s.props.displayColumn==c.name )
+							//vals.push("ok");
+						//else
+							//vals.push(valueHtml(c, Reflect.field(v, c.name), ps, v));
 					}
 				var v = vals.length == 1 ? vals[0] : ""+vals;
 				if( size > 200 ) {
@@ -1065,6 +1073,7 @@ class Main extends Model {
 					}
 				}
 				editDone();
+				updateClasses(v, c, val);
 				// handle #DUP in case we change the first element (creates a dup or removes one)
 				if( c.type == TId && prevObj != null && old != val && ((prevObj.obj == obj && smap.get(sheet.name).index.get(old) != null) || (prevTarget != null && smap.get(sheet.name).index.get(val).obj != prevTarget.obj)) ) {
 					refresh();

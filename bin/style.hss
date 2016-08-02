@@ -288,7 +288,7 @@ div#menu {
 	}
 
 	tr.cursorLine {
-		background-color: #EFF1F8;
+		background-color: #EFF1F8 !important;
 	}
 
 	td.t_image {
@@ -336,8 +336,9 @@ div#menu {
 	}
 
 	tr.list {
-		background-color : #CCC;
-		border-bottom : 0px;
+		//background-color : #CCC;
+		background-color : white;
+		//border-bottom : 0px;
 		tr.head {
 			color : #fff;
 			background-color : #777;
@@ -352,13 +353,20 @@ div#menu {
 			background-color : #EEE;
 		}
 
-		tr.selected, td.selected {
-			background-color : #DDD;
+		tr.cursorLine {
+			background-color: #DDE1F0 !important;
 		}
+		tr.head, th {
+			background-color: #747474;
+		}
+	}
+	tr.list td:first-of-type {
+		background-color: #EFF1F8;
 	}
 	tr.list > td {
 		padding : 0;
-		padding-bottom: 5px;
+		padding-left: 20px;
+		padding-bottom: 20px;
 	}
 
 	tr.clickable {
@@ -383,6 +391,9 @@ div#menu {
 	th.t_tilepos {
 		width: 64px;
 	}
+	th.t_color {
+		width: 64px;
+	}
 	th.t_bool,
 	th.t_int,
 	th.t_float {
@@ -396,7 +407,10 @@ div#menu {
 	}
 
 	tr.selected, td.selected {
-		background-color : #EEE;
+		background-color: #FAE4D1 ! important;
+		td.start {
+			background-color: #EEA664;
+		}
 	}
 
 	td {

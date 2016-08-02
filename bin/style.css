@@ -263,7 +263,7 @@ div#menu ul.sheets li.active {
 	outline : 1px solid #555;
 }
 .castle tr.cursorLine, .dialog-floating tr.cursorLine {
-	background-color : #EFF1F8;
+	background-color : #EFF1F8 !important;
 }
 .castle td.t_image, .dialog-floating td.t_image {
 	cursor : pointer;
@@ -305,8 +305,7 @@ div#menu ul.sheets li.active {
 	display : none;
 }
 .castle tr.list, .dialog-floating tr.list {
-	background-color : #CCC;
-	border-bottom : 0px;
+	background-color : white;
 }
 .castle tr.list tr.head, .dialog-floating tr.list tr.head {
 	color : #fff;
@@ -321,12 +320,19 @@ div#menu ul.sheets li.active {
 .castle tr.list input, .castle tr.list select, .dialog-floating tr.list input, .dialog-floating tr.list select {
 	background-color : #EEE;
 }
-.castle tr.list tr.selected, .castle tr.list td.selected, .dialog-floating tr.list tr.selected, .dialog-floating tr.list td.selected {
-	background-color : #DDD;
+.castle tr.list tr.cursorLine, .dialog-floating tr.list tr.cursorLine {
+	background-color : #DDE1F0 !important;
+}
+.castle tr.list tr.head, .castle tr.list th, .dialog-floating tr.list tr.head, .dialog-floating tr.list th {
+	background-color : #747474;
+}
+.castle tr.list td:first-of-type, .dialog-floating tr.list td:first-of-type {
+	background-color : #EFF1F8;
 }
 .castle tr.list>td, .dialog-floating tr.list>td {
 	padding : 0;
-	padding-bottom : 5px;
+	padding-left : 20px;
+	padding-bottom : 20px;
 }
 .castle tr.clickable, .dialog-floating tr.clickable {
 	cursor : pointer;
@@ -348,6 +354,9 @@ div#menu ul.sheets li.active {
 .castle th.t_tilepos, .dialog-floating th.t_tilepos {
 	width : 64px;
 }
+.castle th.t_color, .dialog-floating th.t_color {
+	width : 64px;
+}
 .castle th.t_bool, .castle th.t_int, .castle th.t_float, .dialog-floating th.t_bool, .dialog-floating th.t_int, .dialog-floating th.t_float {
 	width : 6%;
 }
@@ -355,7 +364,10 @@ div#menu ul.sheets li.active {
 	font-style : italic;
 }
 .castle tr.selected, .castle td.selected, .dialog-floating tr.selected, .dialog-floating td.selected {
-	background-color : #EEE;
+	background-color : #FAE4D1 !important;
+}
+.castle tr.selected td.start, .castle td.selected td.start, .dialog-floating tr.selected td.start, .dialog-floating td.selected td.start {
+	background-color : #EEA664;
 }
 .castle td, .dialog-floating td {
 	user-select : none;

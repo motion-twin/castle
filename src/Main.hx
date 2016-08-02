@@ -585,11 +585,6 @@ class Main extends Model {
 					default:
 						if( listSheet.props.displayColumn==null || listSheet.props.displayColumn==c.name )
 							vals.push(valueHtml(c, Reflect.field(v, c.name), ps, v));
-							//vals.push(s.props.displayColumn);
-						//if( s.props.displayColumn==c.name )
-							//vals.push("ok");
-						//else
-							//vals.push(valueHtml(c, Reflect.field(v, c.name), ps, v));
 					}
 				var v = vals.length == 1 ? vals[0] : ""+vals;
 				if( size > 200 ) {

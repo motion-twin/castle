@@ -55,6 +55,28 @@ input[type=submit]:hover, input[type=submit]:disabled {
 	background-color : #F4F4F4;
 	border-color : #AAA;
 }
+.tedit input[type=submit], form input[type=submit] {
+	padding : 6px;
+	color : white;
+	background-color : #5C6885;
+	outline : 1px solid rgba(0,0,0,0.7);
+	border : 1px solid rgba(255,255,255,0.15);
+	border-top : 1px solid rgba(255,255,255,0.5);
+}
+.tedit input[type=submit]:hover, .tedit input[type=submit]:disabled, form input[type=submit]:hover, form input[type=submit]:disabled {
+	color : white;
+	background-color : #202C42;
+	border-color : transparent;
+	outline : none;
+}
+.tedit input.edit, .tedit input.create, form input.edit, form input.create {
+	padding-left : 20px;
+	padding-right : 20px;
+	font-weight : bold;
+}
+.tedit input.cancel, .tedit input[value~=Cancel], form input.cancel, form input[value~=Cancel] {
+	background-color : #9B3C4D;
+}
 div.modal {
 	position : fixed;
 	left : 0;
@@ -69,7 +91,7 @@ div.modal {
 	zoom : 1;
 }
 div.modal .content {
-	width : 300px;
+	width : 800px;
 	background-color : white;
 	border : 1px solid #88F;
 	border-radius : 5px;
@@ -80,7 +102,7 @@ div.modal .content {
 	text-align : right;
 }
 div.modal .content input[type=text], div.modal .content select {
-	width : 170px;
+	width : 670px;
 }
 div.modal .content h1 {
 	color : #44C;
@@ -93,9 +115,22 @@ div.modal .content span, div.modal .content label {
 	float : left;
 	margin-top : 3px;
 }
+div.modal .content label.check {
+	float : none;
+	display : inline-block;
+	zoom : 1;
+	*display : inline;
+	padding-top : 8px;
+	padding-left : 20px;
+	padding-bottom : 8px;
+	cursor : pointer;
+}
+div.modal .content label.check:hover {
+	outline : 1px solid #D6D6D6;
+}
 div.modal .content textarea {
-	width : 100%;
-	height : 300px;
+	width : 170px;
+	height : 150px;
 }
 div.modal form.edit input.create {
 	display : none;

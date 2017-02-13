@@ -980,6 +980,7 @@ class Main extends Model {
 			return valueHtml(c, val, sheet, obj);
 		}
 		inline function changed() {
+			updateClasses(v, c, val);
 			this.changed(sheet, c, index, old);
 		}
 		var html = getValue();
@@ -1180,7 +1181,6 @@ class Main extends Model {
 				val = !val;
 				Reflect.setField(obj, c.name, val);
 			}
-			updateClasses(v, c, val);
 			v.html(getValue());
 			changed();
 		case TImage:

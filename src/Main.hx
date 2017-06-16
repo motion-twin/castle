@@ -585,7 +585,7 @@ class Main extends Model {
 						vals.push(valueHtml(c, Reflect.field(v, c.name), ps, v));
 					}
 				var v = vals.length == 1 ? vals[0] : ""+vals;
-				if( size > 200 ) {
+				if( size > 500 ) {
 					out.push("...");
 					break;
 				}
@@ -607,7 +607,7 @@ class Main extends Model {
 			for( c in ps.columns ) {
 				var pval = Reflect.field(v, c.name);
 				if( pval == null && c.opt ) continue;
-				out.push(c.name+" : "+valueHtml(c, pval, ps, v));
+				out.push("<span class='propName'>"+c.name+"</span> <span class='propVal'>"+valueHtml(c, pval, ps, v)+"</span>");
 			}
 			return out.join("<br/>");
 		case TCustom(name):
@@ -1573,6 +1573,7 @@ class Main extends Model {
 						fillTable(content, psheet);
 						next.insertAfter(l);
 						v.text("...");
+						v.addClass("opened");
 						openedList.set(key,true);
 						next.change(function(e) {
 							if( c.opt && val.length == 0 ) {
@@ -1582,6 +1583,7 @@ class Main extends Model {
 							}
 							html = valueHtml(c, val, sheet, obj);
 							v.html(html);
+							v.removeClass("opened");
 							div.slideUp(100, function() next.remove());
 							openedList.remove(key);
 							e.stopPropagation();
@@ -1637,6 +1639,7 @@ class Main extends Model {
 						fillProps(content, psheet, val);
 						next.insertAfter(l);
 						v.text("...");
+						v.addClass("opened");
 						openedList.set(key,true);
 						next.change(function(e) {
 							if( c.opt && Reflect.fields(val).length == 0 ) {
@@ -1646,6 +1649,7 @@ class Main extends Model {
 							}
 							html = valueHtml(c, val, sheet, obj);
 							v.html(html);
+							v.removeClass("opened");
 							div.slideUp(100, function() next.remove());
 							openedList.remove(key);
 							e.stopPropagation();

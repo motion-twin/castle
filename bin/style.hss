@@ -330,11 +330,14 @@ div#menu {
 	}
 
 	td.cursor {
-		outline : 1px solid #555;
+		outline : 3px solid #213F85;
+	}
+	td.opened {
+		background-color: #aaa;
 	}
 
 	tr.cursorLine {
-		background-color: #EFF1F8;
+		background-color: #E3E7F2 !important;
 	}
 
 	td.t_image {
@@ -357,7 +360,8 @@ div#menu {
 		background-color: #EFF1F8;
 	}
 	tr.cursorLine td.start {
-		background-color: #D6DBED;
+		background-color: #374780 !important;
+		color: white;
 	}
 
 	tr.head td.start {
@@ -398,8 +402,14 @@ div#menu {
 			background-color : #EEE;
 		}
 
-		tr.selected, td.selected {
-			background-color : #DDD;
+		tr.selected {
+			outline: 1px solid #FF551C;
+		}
+		tr.selected td {
+			background-color : #FEE8A5 !important;
+		}
+		tr.selected td.start {
+			background-color : #FCCE43 !important;
 		}
 	}
 	tr.list > td {
@@ -416,14 +426,17 @@ div#menu {
 	}
 
 	tr.head, th {
-		font-weight: bold;
+		font-weight: normal;
+		font-size: 85%;
 		text-align: center;
 		border-bottom : 1px solid #888;
 		border-left: 1px solid #888;
 		background-color : #333;
 		color : #EEE;
 		width: auto;
-		white-space: nowrap;
+		//white-space: nowrap;
+		word-break: CSS("break-word");
+		vertical-align: bottom;
 		overflow: hidden;
 	}
 	th.t_tilepos {
@@ -432,7 +445,10 @@ div#menu {
 	th.t_bool,
 	th.t_int,
 	th.t_float {
-		width: 6%;
+		width: 65px;
+	}
+	th.t_color {
+		width: 60px;
 	}
 	//th.t_int {
 		//width: 80px;
@@ -441,8 +457,17 @@ div#menu {
 		font-style : italic;
 	}
 
-	tr.selected, td.selected {
-		background-color : #EEE;
+	td.selected {
+		background-color : #eee;
+	}
+	tr.selected {
+		outline: 1px solid #FF551C;
+	}
+	tr.selected td {
+		background-color : #FEE8A5 !important;
+	}
+	tr.selected td.start {
+		background-color : #FCCE43 !important;
 	}
 
 	td {
@@ -471,12 +496,28 @@ div#menu {
 		font-weight: normal;
 		font-size: 75%;
 	}
+	td .propName {
+		display: inline-block;
+		padding-right: 3px;
+		text-align: right;
+		font-size: 80%;
+		min-width: 70px;
+		color: #444466;
+	}
 
 	td.t_int, td.t_float {
 		text-align : center;
 		input {
 			text-align : center;
 		}
+	}
+
+	td.t_string {
+		font-size: 90%;
+		font-style: italic;
+		color: #444488;
+		word-break: CSS("break-word");
+		hyphen: CSS("auto");
 	}
 
 	td.t_int.zero, td.t_float.zero {
@@ -489,6 +530,12 @@ div#menu {
 		img {
 			max-height: 32px;
 			max-width: 32px;
+		}
+		.color {
+			display: inline-block;
+		}
+		.tile {
+			zoom: CSS("0.5");
 		}
 	}
 

@@ -168,6 +168,9 @@ div.modal #col_options.t_layer .sheet {
 div.modal #col_options.t_custom .custom {
 	display : block;
 }
+.modal.tileSelect .content {
+	width : 90%;
+}
 .modal.tileSelect .menu {
 	margin-bottom : 5px;
 }
@@ -201,8 +204,7 @@ div.modal #col_options.t_custom .custom {
 	padding-right : 5px;
 	padding-bottom : 5px;
 	border : 1px solid black;
-	max-width : 640px;
-	max-height : 640px;
+	max-height : 85%;
 	overflow : auto;
 }
 #newtype.modal .content {
@@ -295,10 +297,13 @@ div#menu ul.sheets li.active {
 	overflow : hidden;
 }
 .castle td.cursor, .dialog-floating td.cursor {
-	outline : 1px solid #555;
+	outline : 3px solid #213F85;
+}
+.castle td.opened, .dialog-floating td.opened {
+	background-color : #aaa;
 }
 .castle tr.cursorLine, .dialog-floating tr.cursorLine {
-	background-color : #EFF1F8;
+	background-color : #E3E7F2 !important;
 }
 .castle td.t_image, .dialog-floating td.t_image {
 	cursor : pointer;
@@ -320,7 +325,8 @@ div#menu ul.sheets li.active {
 	background-color : #EFF1F8;
 }
 .castle tr.cursorLine td.start, .dialog-floating tr.cursorLine td.start {
-	background-color : #D6DBED;
+	background-color : #374780 !important;
+	color : white;
 }
 .castle tr.head td.start, .dialog-floating tr.head td.start {
 	cursor : nw-resize;
@@ -356,8 +362,14 @@ div#menu ul.sheets li.active {
 .castle tr.list input, .castle tr.list select, .dialog-floating tr.list input, .dialog-floating tr.list select {
 	background-color : #EEE;
 }
-.castle tr.list tr.selected, .castle tr.list td.selected, .dialog-floating tr.list tr.selected, .dialog-floating tr.list td.selected {
-	background-color : #DDD;
+.castle tr.list tr.selected, .dialog-floating tr.list tr.selected {
+	outline : 1px solid #FF551C;
+}
+.castle tr.list tr.selected td, .dialog-floating tr.list tr.selected td {
+	background-color : #FEE8A5 !important;
+}
+.castle tr.list tr.selected td.start, .dialog-floating tr.list tr.selected td.start {
+	background-color : #FCCE43 !important;
 }
 .castle tr.list>td, .dialog-floating tr.list>td {
 	padding : 0;
@@ -370,27 +382,41 @@ div#menu ul.sheets li.active {
 	background-color : #f8f8f8;
 }
 .castle tr.head, .castle th, .dialog-floating tr.head, .dialog-floating th {
-	font-weight : bold;
+	font-weight : normal;
+	font-size : 85%;
 	text-align : center;
 	border-bottom : 1px solid #888;
 	border-left : 1px solid #888;
 	background-color : #333;
 	color : #EEE;
 	width : auto;
-	white-space : nowrap;
+	word-break : break-word;
+	vertical-align : bottom;
 	overflow : hidden;
 }
 .castle th.t_tilepos, .dialog-floating th.t_tilepos {
 	width : 64px;
 }
 .castle th.t_bool, .castle th.t_int, .castle th.t_float, .dialog-floating th.t_bool, .dialog-floating th.t_int, .dialog-floating th.t_float {
-	width : 6%;
+	width : 65px;
+}
+.castle th.t_color, .dialog-floating th.t_color {
+	width : 60px;
 }
 .castle tr.head .display, .dialog-floating tr.head .display {
 	font-style : italic;
 }
-.castle tr.selected, .castle td.selected, .dialog-floating tr.selected, .dialog-floating td.selected {
-	background-color : #EEE;
+.castle td.selected, .dialog-floating td.selected {
+	background-color : #eee;
+}
+.castle tr.selected, .dialog-floating tr.selected {
+	outline : 1px solid #FF551C;
+}
+.castle tr.selected td, .dialog-floating tr.selected td {
+	background-color : #FEE8A5 !important;
+}
+.castle tr.selected td.start, .dialog-floating tr.selected td.start {
+	background-color : #FCCE43 !important;
 }
 .castle td, .dialog-floating td {
 	user-select : none;
@@ -421,11 +447,28 @@ div#menu ul.sheets li.active {
 	font-weight : normal;
 	font-size : 75%;
 }
+.castle td .propName, .dialog-floating td .propName {
+	display : inline-block;
+	zoom : 1;
+	*display : inline;
+	padding-right : 3px;
+	text-align : right;
+	font-size : 80%;
+	min-width : 70px;
+	color : #444466;
+}
 .castle td.t_int, .castle td.t_float, .dialog-floating td.t_int, .dialog-floating td.t_float {
 	text-align : center;
 }
 .castle td.t_int input, .castle td.t_float input, .dialog-floating td.t_int input, .dialog-floating td.t_float input {
 	text-align : center;
+}
+.castle td.t_string, .dialog-floating td.t_string {
+	font-size : 90%;
+	font-style : italic;
+	color : #444488;
+	word-break : break-word;
+	hyphen : auto;
 }
 .castle td.t_int.zero, .castle td.t_float.zero, .dialog-floating td.t_int.zero, .dialog-floating td.t_float.zero {
 	color : #888;
@@ -437,6 +480,14 @@ div#menu ul.sheets li.active {
 .castle td.t_list img, .castle td.t_properties img, .dialog-floating td.t_list img, .dialog-floating td.t_properties img {
 	max-height : 32px;
 	max-width : 32px;
+}
+.castle td.t_list .color, .castle td.t_properties .color, .dialog-floating td.t_list .color, .dialog-floating td.t_properties .color {
+	display : inline-block;
+	zoom : 1;
+	*display : inline;
+}
+.castle td.t_list .tile, .castle td.t_properties .tile, .dialog-floating td.t_list .tile, .dialog-floating td.t_properties .tile {
+	zoom : 0.5;
 }
 .castle td.t_enum, .dialog-floating td.t_enum {
 	padding-left : 5px;

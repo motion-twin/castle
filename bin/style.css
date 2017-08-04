@@ -470,6 +470,11 @@ div#menu ul.sheets li.active {
 	word-break : break-word;
 	hyphen : auto;
 }
+.castle td.t_string textarea, .dialog-floating td.t_string textarea {
+	min-height : 100px;
+	width : 100%;
+	height : 100%;
+}
 .castle td.t_int.zero, .castle td.t_float.zero, .dialog-floating td.t_int.zero, .dialog-floating td.t_float.zero {
 	color : #888;
 }

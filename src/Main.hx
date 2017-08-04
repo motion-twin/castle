@@ -173,9 +173,12 @@ class Main extends Model {
 
 	function onKeyPress( e : js.html.KeyboardEvent ) {
 		if( !e.ctrlKey && !isInput() ) {
-			if( e.keyCode==K.ENTER )
-				e.preventDefault();
-			J(".cursor").not(".edit").dblclick();
+			var c = J(".cursor").not(".edit");
+			if( c.length>0 ) {
+				if( e.keyCode==K.ENTER )
+					e.preventDefault();
+				c.dblclick();
+			}
 		}
 	}
 
@@ -246,11 +249,15 @@ class Main extends Model {
 			refresh();
 			save();
 		case K.UP:
-			moveCursor(0, -1, e.shiftKey, e.ctrlKey);
-			e.preventDefault();
+			if( J(".cursor textarea").length==0 ) {
+				moveCursor(0, -1, e.shiftKey, e.ctrlKey);
+				e.preventDefault();
+			}
 		case K.DOWN:
-			moveCursor(0, 1, e.shiftKey, e.ctrlKey);
-			e.preventDefault();
+			if( J(".cursor textarea").length==0 ) {
+				moveCursor(0, 1, e.shiftKey, e.ctrlKey);
+				e.preventDefault();
+			}
 		case K.LEFT:
 			moveCursor(-1, 0, e.shiftKey, e.ctrlKey);
 		case K.RIGHT:
@@ -1012,12 +1019,13 @@ class Main extends Model {
 				case K.ESC:
 					editDone();
 				case K.ENTER:
-					if( !i.is("textarea") || !e.ctrlKey && !e.altKey && !e.shiftKey ) {
+					if( !i.is("textarea") || !e.shiftKey && !e.altKey && !e.ctrlKey ) {
 						i.blur();
 						e.preventDefault();
 					}
 				case K.UP, K.DOWN:
-					i.blur();
+					if( !i.is("textarea") )
+						i.blur();
 					return;
 				case K.TAB:
 					i.blur();

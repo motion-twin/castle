@@ -991,7 +991,7 @@ class Main extends Model {
 		switch( c.type ) {
 		case TInt, TFloat, TString, TId, TCustom(_), TDynamic:
 			v.empty();
-			var i = J("<input>");
+			var i = J(c.type==TString?"<textarea>":"<input>");
 			v.addClass("edit");
 			i.appendTo(v);
 			if( val != null )

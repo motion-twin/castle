@@ -518,6 +518,11 @@ div#menu {
 		color: #444488;
 		word-break: CSS("break-word");
 		hyphen: CSS("auto");
+		textarea {
+			min-height: 100px;
+			width: 100%;
+			height: 100%;
+		}
 	}
 
 	td.t_int.zero, td.t_float.zero {

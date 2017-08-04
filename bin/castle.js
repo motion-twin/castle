@@ -5353,10 +5353,13 @@ Main.prototype = $extend(Model.prototype,{
 	}
 	,onKeyPress: function(e) {
 		if(!e.ctrlKey && !this.isInput()) {
-			if(e.keyCode == 13) {
-				e.preventDefault();
+			var c = $(".cursor").not(".edit");
+			if(c.length > 0) {
+				if(e.keyCode == 13) {
+					e.preventDefault();
+				}
+				c.dblclick();
 			}
-			$(".cursor").not(".edit").dblclick();
 		}
 	}
 	,getSelection: function() {
@@ -5429,15 +5432,19 @@ Main.prototype = $extend(Model.prototype,{
 			this.moveCursor(-1,0,e.shiftKey,e.ctrlKey);
 			break;
 		case 38:
-			this.moveCursor(0,-1,e.shiftKey,e.ctrlKey);
-			e.preventDefault();
+			if($(".cursor textarea").length == 0) {
+				this.moveCursor(0,-1,e.shiftKey,e.ctrlKey);
+				e.preventDefault();
+			}
 			break;
 		case 39:
 			this.moveCursor(1,0,e.shiftKey,e.ctrlKey);
 			break;
 		case 40:
-			this.moveCursor(0,1,e.shiftKey,e.ctrlKey);
-			e.preventDefault();
+			if($(".cursor textarea").length == 0) {
+				this.moveCursor(0,1,e.shiftKey,e.ctrlKey);
+				e.preventDefault();
+			}
 			break;
 		case 45:
 			if(inCDB) {
@@ -6533,7 +6540,7 @@ Main.prototype = $extend(Model.prototype,{
 					e1.preventDefault();
 					break;
 				case 13:
-					if(!i["is"]("textarea") || !e1.ctrlKey && !e1.altKey && !e1.shiftKey) {
+					if(!i["is"]("textarea") || !e1.shiftKey && !e1.altKey && !e1.ctrlKey) {
 						i.blur();
 						e1.preventDefault();
 					}
@@ -6542,7 +6549,9 @@ Main.prototype = $extend(Model.prototype,{
 					editDone();
 					break;
 				case 38:case 40:
-					i.blur();
+					if(!i["is"]("textarea")) {
+						i.blur();
+					}
 					return;
 				default:
 				}

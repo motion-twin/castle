@@ -172,8 +172,11 @@ class Main extends Model {
 	}
 
 	function onKeyPress( e : js.html.KeyboardEvent ) {
-		if( !e.ctrlKey && !isInput() )
+		if( !e.ctrlKey && !isInput() ) {
+			if( e.keyCode==K.ENTER )
+				e.preventDefault();
 			J(".cursor").not(".edit").dblclick();
+		}
 	}
 
 	function getSelection() {
@@ -546,7 +549,7 @@ class Main extends Model {
 		case TId:
 			v == "" ? '<span class="error">#MISSING</span>' : (smap.get(sheet.name).index.get(v).obj == obj ? v : '<span class="error">#DUP($v)</span>');
 		case TString, TLayer(_):
-			v == "" ? "&nbsp;" : StringTools.htmlEscape(v);
+			v == "" ? "&nbsp;" : StringTools.replace(StringTools.htmlEscape(v), "\n","<br/>");
 		case TRef(sname):
 			if( v == "" )
 				'<span class="error">#MISSING</span>';
@@ -1009,8 +1012,10 @@ class Main extends Model {
 				case K.ESC:
 					editDone();
 				case K.ENTER:
-					i.blur();
-					e.preventDefault();
+					if( !i.is("textarea") || !e.ctrlKey && !e.altKey && !e.shiftKey ) {
+						i.blur();
+						e.preventDefault();
+					}
 				case K.UP, K.DOWN:
 					i.blur();
 					return;
@@ -1091,6 +1096,7 @@ class Main extends Model {
 			}
 			i.focus();
 			i.select();
+
 		case TEnum(values):
 			v.empty();
 			var s = J("<select>");

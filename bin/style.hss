@@ -258,26 +258,34 @@ div#menu {
 	user-select : none;
 	a {
 		line-height : 25px;
+		font-size: 8pt;
 		color : #228;
 		float : right;
-		margin-right: 10px;
+		padding: 0px 4px;
+		border-left: 1px solid #88f;
 	}
 	a:hover {
 		color : #44C;
+		background: white;
 	}
 	ul.sheets {
 		margin-top : -1px;
-		margin-left : 5px;
 		li {
-			height : 20px;
+			font-size: 9pt;
+			height : 24px;
+			line-height: 20px;
 			background-color : #88F;
-			padding : 2px 8px;
+			padding : 0px 4px;
+			padding-left: 7px;
 			display : inline-block;
 			color : #44C;
 			cursor : pointer;
 			border : 1px solid #88F;
 			border-top : 0px;
-			border-bottom-right-radius: 5px;
+			border-right-color: #44B;
+			//border-bottom-color: #44B;
+			border-bottom: 2px solid #44B;
+			border-bottom-right-radius: 4px;
 		}
 		li:hover {
 			background-color : #88F * 1.1;

@@ -1258,7 +1258,19 @@ class Main extends Model {
 				v.html(getValue());
 				save();
 			}}).spectrum("show");
-		case TList, TLayer(_), TFile, TTilePos, TProperties:
+		case TFile:
+			chooseFile(function(path) {
+				val = path;
+				if( path == null )
+					Reflect.deleteField(obj, c.name);
+				else
+					Reflect.setField(obj, c.name, path);
+				html = valueHtml(c, val, sheet, obj);
+				v.html(html);
+				changed();
+				save();
+			});
+		case TList, TLayer(_), TTilePos, TProperties:
 			throw "assert2";
 		}
 	}

@@ -90,6 +90,16 @@ class Module {
 		return out;
 	}
 
+	#if macro
+	// Workaround for VS Code completion consistently invoking build(), which takes a while with large cdb files.
+	// The cache is invalidated for a given CDB file when the file's modification time changes.
+	@:persistent static var buildCache =
+		new Map<
+			String, // path to cdb file
+			{ cdbFileMTime : Float, types : Array<haxe.macro.Expr.TypeDefinition> }
+			>();
+	#end
+
 	public static function build( file : String, ?typeName : String ) {
 		#if !macro
 		throw "This can only be called in a macro";
@@ -108,6 +118,18 @@ class Module {
 			try path = Context.resolvePath("res/" + file) catch( e : Dynamic ) null;
 		if( path == null )
 			Context.error("File not found " + file, pos);
+
+		// If we've already processed this cdb file in a previous compilation, reuse cached type info
+		var cdbStat = sys.FileSystem.stat(path);
+		var cacheEntry = buildCache.get(path);
+		if ( path != null && cacheEntry != null && cacheEntry.cdbFileMTime == cdbStat.mtime.getTime() ) {
+			// Reuse cached types
+			var mpath = Context.getLocalModule();
+			Context.defineModule(mpath, cacheEntry.types);
+			Context.registerModuleDependency(mpath, path);
+			return macro : Void;
+		}
+		
 		var data = Parser.parse(sys.io.File.getContent(path));
 		var r_chars = ~/[^A-Za-z0-9_]/g;
 		function makeTypeName( name : String ) {
@@ -519,6 +541,10 @@ class Module {
 		var mpath = Context.getLocalModule();
 		Context.defineModule(mpath, types);
 		Context.registerModuleDependency(mpath, path);
+
+		// Cache type info for subsequent compilations
+		buildCache.set(path, {cdbFileMTime: cdbStat.mtime.getTime(), types: types});
+
 		#if (haxe_ver >= 3.2)
 		return macro : Void;
 		#else

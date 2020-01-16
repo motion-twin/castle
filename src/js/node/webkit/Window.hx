@@ -2,7 +2,7 @@ package js.node.webkit;
 
 @:jsRequire("nw.gui", "Window")
 extern class Window {
-	public var window : #if (haxe_ver >= 3.2) js.html.Window #else js.html.DOMWindow #end;
+	public var window : js.html.Window;
 	public var x : Int;
 	public var y : Int;
 	public var width : Int;

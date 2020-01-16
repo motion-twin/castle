@@ -545,11 +545,7 @@ class Module {
 		// Cache type info for subsequent compilations
 		buildCache.set(path, {cdbFileMTime: cdbStat.mtime.getTime(), types: types});
 
-		#if (haxe_ver >= 3.2)
 		return macro : Void;
-		#else
-		return Context.getType("Void");
-		#end
 		#end
 	}
 

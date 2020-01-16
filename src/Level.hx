@@ -274,7 +274,7 @@ class Level {
 	public function reload() {
 		if( !reloading ) {
 			reloading = true;
-			Std.instance(model,Main).initContent();
+			Std.downcast(model,Main).initContent();
 		}
 	}
 
@@ -1197,7 +1197,7 @@ class Level {
 		popup.click(function(e) e.stopPropagation());
 
 		var table = J("<table>").appendTo(popup);
-		var main = Std.instance(model, Main);
+		var main = Std.downcast(model, Main);
 		for( c in l.baseSheet.columns ) {
 			var tr = J("<tr>").appendTo(table);
 			var th = J("<th>").text(c.name).appendTo(tr);

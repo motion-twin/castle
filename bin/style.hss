@@ -683,7 +683,7 @@ div#menu {
 			.icon {
 				width : 16px;
 				height : 16px;
-				border : 1 px solid #CCC;
+				border : 1px solid #CCC;
 				cursor : pointer;
 				display : inline-block;
 				margin-right : 2px;
@@ -884,7 +884,7 @@ div#menu {
 		}
 		.item.selected {
 			background-color : #FFF;
-			border : 1 px solid #888;
+			border : 1px solid #888;
 			padding : 9px;
 		}
 

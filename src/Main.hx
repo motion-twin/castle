@@ -438,7 +438,6 @@ class Main extends Model {
 		J("<td>").appendTo(res);
 		var cell = J("<td>").attr("colspan", "" + (sheet.columns.length + (sheet.isLevel() ? 1 : 0))).appendTo(res);
 		var div = J("<div>").appendTo(cell);
-		div.hide();
 		var content = J("<table>").appendTo(div);
 
 		var cols = J("<tr>").addClass("head");
@@ -483,12 +482,11 @@ class Main extends Model {
 		}
 
 		res.change(function(e) {
-			div.slideUp(100, function() res.remove());
+			res.remove();
 			e.stopPropagation();
 		});
 
 		res.insertAfter(line);
-		div.slideDown(100);
 	}
 
 
@@ -1637,8 +1635,6 @@ class Main extends Model {
 						J("<td>").appendTo(next);
 						var cell = J("<td>").attr("colspan", "" + colCount).appendTo(next);
 						var div = J("<div>").appendTo(cell);
-						if( !inTodo )
-							div.hide();
 						var content = J("<table>").appendTo(div);
 						var psheet = sheet.getSub(c);
 						if( val == null ) {
@@ -1666,7 +1662,7 @@ class Main extends Model {
 							html = valueHtml(c, val, sheet, obj);
 							v.html(html);
 							v.removeClass("opened");
-							div.slideUp(100, function() next.remove());
+							next.remove();
 							openedList.remove(key);
 							e.stopPropagation();
 						});
@@ -1677,7 +1673,6 @@ class Main extends Model {
 								checkCursor = false;
 							}
 						} else {
-							div.slideDown(100);
 							setCursor(psheet);
 						}
 						e.stopPropagation();
@@ -1701,8 +1696,6 @@ class Main extends Model {
 						J("<td>").appendTo(next);
 						var cell = J("<td>").attr("colspan", "" + colCount).appendTo(next);
 						var div = J("<div>").appendTo(cell);
-						if( !inTodo )
-							div.hide();
 						var content = J("<table>").addClass("props").appendTo(div);
 						var psheet = sheet.getSub(c);
 						if( val == null ) {
@@ -1732,7 +1725,7 @@ class Main extends Model {
 							html = valueHtml(c, val, sheet, obj);
 							v.html(html);
 							v.removeClass("opened");
-							div.slideUp(100, function() next.remove());
+							next.remove();
 							openedList.remove(key);
 							e.stopPropagation();
 						});
@@ -1743,7 +1736,6 @@ class Main extends Model {
 								checkCursor = false;
 							}
 						} else {
-							div.slideDown(100);
 							setCursor(psheet);
 						}
 						e.stopPropagation();

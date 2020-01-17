@@ -150,7 +150,7 @@ class Module {
 		for( s in data.sheets ) {
 			var tname = makeTypeName(s.name);
 			var tkind = tname + "Kind";
-			var hasId = false;
+			var idField = null;
 			var fields : Array<haxe.macro.Expr.Field> = [];
 			var realFields : Array<haxe.macro.Expr.Field> = [];
 			var ids : Array<haxe.macro.Expr.Field> = [];
@@ -235,7 +235,8 @@ class Module {
 						access : [AInline, APrivate],
 					});
 				case TId:
-					hasId = true;
+					if( idField == null )
+						idField = c.name;
 
 					var cname = c.name;
 					for( obj in getSheetLines(data.sheets,s) ) {
@@ -342,7 +343,22 @@ class Module {
 				realFields.push( { name : "group", pos : pos, kind : FVar(tint) } );
 				var tgroup = makeTypeName(s.name + "@group");
 				var groups = [for( t in gtitles ) if( t != null ) makeTypeName(t)];
-				if( s.separators[0] != 0 || gtitles[0] == null )
+				var needNone = false;
+				// check if we have items without a separator
+				if( gtitles[0] == null )
+					needNone = true;
+				else if( s.separators != null )
+					needNone = s.separators[0] > 0;
+				else {
+					var ids : Array<Dynamic> = Reflect.field(s, "separatorIds");
+					var fid = ids[0];
+					if( Std.is(fid,Int) ) {
+						needNone = fid > 0;
+					} else
+						needNone = fid != Reflect.field(s.lines[0],idField);
+				}
+
+				if( needNone )
 					groups.unshift("None");
 				types.push(makeFakeEnum(tgroup, curMod, pos, groups));
 				var tgroup = tgroup.toComplex();
@@ -364,8 +380,23 @@ class Module {
 				fields : realFields,
 			});
 
+			if ( Context.defined("castle_unsafe") ) {
+				fields.push({
+					name: "toDef",
+					pos: pos,
+					kind: FFun( { ret: def.toComplex(), args: [], expr: macro return this } ),
+					access: [AInline, APublic]
+				});
 
-			if( hasId ) {
+				fields.push({
+					name: "fromDef",
+					pos: pos,
+					kind: FFun( { ret : tname.toComplex(), args : [{ name : "v", type : def.toComplex(), }], expr : macro return cast v }),
+					access: [AInline, AStatic, APublic]
+				});
+			}
+
+			if( idField != null ) {
 				ids.push( {
 					name : "toString",
 					pos : pos,
@@ -398,7 +429,6 @@ class Module {
 					continue;
 				}
 			}
-
 
 			types.push({
 				pos : pos,
@@ -509,7 +539,7 @@ class Module {
 					access : [APublic, AStatic],
 					kind : FVar(macro : cdb.Types.IndexId<$t,$kind>),
 				});
-				assigns.push(macro $i { fname } = new cdb.Types.IndexId(root, $v { s.name } ));
+				assigns.push(macro if( allowReload && $i{fname} != null ) @:privateAccess $i{fname}.reload(root) else $i{fname} = new cdb.Types.IndexId(root, $v{s.name}));
 			} else {
 				fields.push({
 					name : fname,
@@ -517,7 +547,7 @@ class Module {
 					access : [APublic, AStatic],
 					kind : FVar(macro : cdb.Types.Index<$t>),
 				});
-				assigns.push(macro $i { fname } = new cdb.Types.Index(root, $v { s.name } ));
+				assigns.push(macro $i{ fname } = new cdb.Types.Index(root, $v{ s.name }));
 			}
 		}
 		types.push({
@@ -527,13 +557,13 @@ class Module {
 			kind : TDClass(),
 			fields : (macro class {
 				private static var root : cdb.Data;
-				public static function applyLang( xml : String, ?onMissing : String -> Void ) {
+				public static function applyLang( xml : String, ?reference : String, ?onMissing : String -> Void ) {
 					var c = new cdb.Lang(root);
 					if( onMissing != null ) c.onMissing = onMissing;
-					c.apply(xml);
+					return c.apply(xml,reference);
 				}
-				public static function load( content : String ) {
-					root = cdb.Parser.parse(content);
+				public static function load( content : String, allowReload = false ) {
+					root = cdb.Parser.parse(content, false);
 					{$a{assigns}};
 				}
 			}).fields.concat(fields),

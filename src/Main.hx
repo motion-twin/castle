@@ -72,6 +72,8 @@ class Main extends Model {
 	var mcompress : MenuItem;
 	var pages : JqPages;
 
+	var macEditMenu : MenuItem;
+
 	function new() {
 		super();
 		window = js.node.webkit.Window.get();
@@ -85,6 +87,8 @@ class Main extends Model {
 		window.window.addEventListener("keypress", onKeyPress);
 		window.window.addEventListener("keyup", onKeyUp);
 		window.window.addEventListener("mousemove", onMouseMove);
+		window.window.addEventListener("dragover", function(e : js.html.Event) { e.preventDefault(); return false; });
+		window.window.addEventListener("drop", onDragDrop);
 		J(".modal").keypress(function(e) e.stopPropagation()).keydown(function(e) e.stopPropagation());
 		J("#search input").keydown(function(e) {
 			if( e.keyCode == 27 ) {
@@ -135,6 +139,17 @@ class Main extends Model {
 	function onMouseMove( e : js.html.MouseEvent ) {
 		mousePos.x = e.clientX;
 		mousePos.y = e.clientY;
+	}
+
+	function onDragDrop( e : js.html.DragEvent ) {
+		e.preventDefault();
+		for ( i in 0...e.dataTransfer.files.length ) {
+			var file = e.dataTransfer.files[i];
+			if (haxe.io.Path.extension(file.name) == "cdb") {
+				prefs.curFile = untyped file.path;
+				load();
+			}
+		}
 	}
 
 	function setClipBoard( schema : Array<Column>, data : Array<Dynamic> ) {
@@ -203,6 +218,10 @@ class Main extends Model {
 	}
 
 	function onKey( e : js.html.KeyboardEvent ) {
+		var ctrlDown = e.ctrlKey;
+		if(Sys.systemName().indexOf("Mac") != -1) {
+			ctrlDown = e.metaKey;
+		}
 
 		if( isInput() )
 			return;
@@ -249,26 +268,22 @@ class Main extends Model {
 			refresh();
 			save();
 		case K.UP:
-			if( J(".cursor textarea").length==0 ) {
-				moveCursor(0, -1, e.shiftKey, e.ctrlKey);
-				e.preventDefault();
-			}
+			moveCursor(0, -1, e.shiftKey, ctrlDown);
+			e.preventDefault();
 		case K.DOWN:
-			if( J(".cursor textarea").length==0 ) {
-				moveCursor(0, 1, e.shiftKey, e.ctrlKey);
-				e.preventDefault();
-			}
+			moveCursor(0, 1, e.shiftKey, ctrlDown);
+			e.preventDefault();
 		case K.LEFT:
-			moveCursor(-1, 0, e.shiftKey, e.ctrlKey);
+			moveCursor(-1, 0, e.shiftKey, ctrlDown);
 		case K.RIGHT:
-			moveCursor(1, 0, e.shiftKey, e.ctrlKey);
+			moveCursor(1, 0, e.shiftKey, ctrlDown);
 		case K.ENTER if( inCDB ):
 			// open list
 			if( cursor.s != null && J(".cursor.t_list,.cursor.t_properties").click().length > 0 )
 				e.preventDefault();
 		case K.SPACE:
 			e.preventDefault(); // scrolling
-		case 'Z'.code if( e.ctrlKey && pages.curPage < 0 ):
+		case 'Z'.code if( ctrlDown && pages.curPage < 0 ):
 			if( history.length > 0 ) {
 				redo.push(curSavedData);
 				curSavedData = history.pop();
@@ -276,7 +291,7 @@ class Main extends Model {
 				initContent();
 				save(false);
 			}
-		case 'Y'.code if( e.ctrlKey && pages.curPage < 0 ):
+		case 'Y'.code if( ctrlDown && pages.curPage < 0 ):
 			if( redo.length > 0 ) {
 				history.push(curSavedData);
 				curSavedData = redo.pop();
@@ -284,7 +299,7 @@ class Main extends Model {
 				initContent();
 				save(false);
 			}
-		case 'C'.code if( e.ctrlKey ):
+		case 'C'.code if( ctrlDown ):
 			if( cursor.s != null ) {
 				var s = getSelection();
 				var data = [];
@@ -301,10 +316,10 @@ class Main extends Model {
 				}
 				setClipBoard([for( x in s.x1...s.x2+1 ) cursor.s.columns[x]], data);
 			}
-		case 'X'.code if( e.ctrlKey ):
+		case 'X'.code if( ctrlDown ):
 			onKey(cast { keyCode : 'C'.code, ctrlKey : true });
 			onKey(cast { keyCode : K.DELETE } );
-		case 'V'.code if( e.ctrlKey ):
+		case 'V'.code if( ctrlDown ):
 			if( cursor.s == null || clipboard == null || js.node.webkit.Clipboard.getInstance().get("text")  != clipboard.text )
 				return;
 			var sheet = cursor.s;
@@ -341,7 +356,7 @@ class Main extends Model {
 			refresh();
 			save();
 		case K.TAB:
-			if( e.ctrlKey ) {
+			if( ctrlDown ) {
 				var sheets = base.sheets.filter(function(s) return !s.props.hide);
 				var pos = (level == null ? Lambda.indexOf(sheets, viewSheet) : sheets.length + Lambda.indexOf(levels, level)) + 1;
 				var s = sheets[pos % (sheets.length + levels.length)];
@@ -386,7 +401,7 @@ class Main extends Model {
 				default:
 				}
 			}
-		case "F".code if( e.ctrlKey && inCDB ):
+		case "F".code if( ctrlDown && inCDB ):
 			var s = J("#search");
 			s.show();
 			s.find("input").focus().select();
@@ -609,7 +624,7 @@ class Main extends Model {
 				out.push(v);
 			}
 			if( out.length == 0 )
-				return "[]";
+				return "";
 			return out.join(", ");
 		case TProperties:
 			var ps = sheet.getSub(c);
@@ -649,7 +664,8 @@ class Main extends Model {
 			var path = getAbsPath(v);
 			var url = "file://" + path;
 			var ext = v.split(".").pop().toLowerCase();
-			var html = v == "" ? '<span class="error">#MISSING</span>' : StringTools.htmlEscape(v);
+			var val = StringTools.htmlEscape(v);
+			var html = v == "" ? '<span class="error">#MISSING</span>' : '<span title="$val">$val</span>';
 			if( v != "" && !quickExists(path) )
 				html = '<span class="error">' + html + '</span>';
 			else if( ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" )
@@ -898,25 +914,35 @@ class Main extends Model {
 			if( prev < 0 ) return;
 			base.sheets.remove(s);
 			base.sheets.insert(prev, s);
+			base.updateSheets();
 			prefs.curSheet = prev;
 			initContent();
 			save();
 		};
 		nright.click = function() {
-			var found = null;
-			for( i in 0...base.sheets.length ) {
-				var s2 = base.sheets[i];
-				if( s == s2 )
-					found = -1;
-				else if( !s2.props.hide && found != null ) {
-					found = i;
-					break;
+			var sheets = [for( s in base.sheets ) if( !s.props.hide ) s];
+			var index = sheets.indexOf(s);
+			var next = sheets[index+1];
+			if( index < 0 || next == null ) return;
+			base.sheets.remove(s);
+			index = base.sheets.indexOf(next) + 1;
+			base.sheets.insert(index, s);
+
+			// move sub sheets as well !
+			var moved = [s];
+			var delta = 0;
+			for( ssub in base.sheets.copy() ) {
+				var parent = ssub.getParent();
+				if( parent != null && moved.indexOf(parent.s) >= 0 ) {
+					base.sheets.remove(ssub);
+					var idx = base.sheets.indexOf(s) + (++delta);
+					base.sheets.insert(idx, ssub);
+					moved.push(ssub);
 				}
 			}
-			if( found == null || found < 0 ) return;
-			base.sheets.remove(s);
-			base.sheets.insert(found, s);
-			prefs.curSheet = found;
+
+			base.updateSheets();
+			prefs.curSheet = base.sheets.indexOf(s);
 			initContent();
 			save();
 		}
@@ -983,6 +1009,7 @@ class Main extends Model {
 	}
 
 	public function editCell( c : Column, v : JQuery, sheet : Sheet, index : Int ) {
+		if( macEditMenu != null ) window.menu.append(macEditMenu);
 		var obj = sheet.lines[index];
 		var val : Dynamic = Reflect.field(obj, c.name);
 		var old = val;
@@ -996,6 +1023,7 @@ class Main extends Model {
 		var html = getValue();
 		if( v.hasClass("edit") ) return;
 		function editDone() {
+			if( macEditMenu != null ) window.menu.remove(macEditMenu);
 			v.html(html);
 			v.removeClass("edit");
 			setErrorMessage();
@@ -1198,9 +1226,7 @@ class Main extends Model {
 			v.html(getValue());
 			changed();
 		case TImage:
-			var i = J("<input>").attr("type", "file").css("display","none").change(function(e) {
-				var j = JTHIS;
-				var file : String = j.val();
+			inline function loadImage(file : String) {
 				var ext = file.split(".").pop().toLowerCase();
 				if( ext == "jpeg" ) ext = "jpg";
 				if( ext != "png" && ext != "gif" && ext != "jpg" ) {
@@ -1218,10 +1244,18 @@ class Main extends Model {
 				Reflect.setField(obj, c.name, val);
 				v.html(getValue());
 				changed();
-				j.remove();
-			});
-			i.appendTo(J("body"));
-			i.click();
+			}
+			if ( untyped v.dropFile != null ) {
+				loadImage(untyped v.dropFile);
+			} else {
+				var i = J("<input>").attr("type", "file").css("display","none").change(function(e) {
+					var j = JTHIS;
+					loadImage(j.val());
+					j.remove();
+				});
+				i.appendTo(J("body"));
+				i.click();
+			}
 		case TFlags(values):
 			var div = J("<div>").addClass("flagValues");
 			div.click(function(e) e.stopPropagation()).dblclick(function(e) e.stopPropagation());
@@ -1259,16 +1293,23 @@ class Main extends Model {
 				save();
 			}}).spectrum("show");
 		case TFile:
-			chooseFile(function(path) {
-				val = path;
-				if( path == null )
+			v.empty();
+			v.off();
+			v.html(getValue());
+			v.find("input").addClass("deletable").change(function(e) {
+				if( Reflect.field(obj,c.name) != null ) {
 					Reflect.deleteField(obj, c.name);
-				else
+					v.html(getValue());
+					save();
+				}
+			});
+			v.dblclick(function(_) {
+				chooseFile(function(path) {
+					val = path;
 					Reflect.setField(obj, c.name, path);
-				html = valueHtml(c, val, sheet, obj);
-				v.html(html);
-				changed();
-				save();
+					v.html(getValue());
+					save();
+				});
 			});
 		case TList, TLayer(_), TTilePos, TProperties:
 			throw "assert2";
@@ -1328,6 +1369,24 @@ class Main extends Model {
 		updateCursor();
 	}
 
+	inline function makeRelativePath( path : String ) : String {
+		if ( prefs.curFile == null ) return path;
+
+		var parts = path.split("\\").join("/").split("/");
+		var base = prefs.curFile.split("\\").join("/").split("/");
+		base.pop();
+		while( parts.length > 1 && base.length > 0 && parts[0] == base[0] ) {
+			parts.shift();
+			base.shift();
+		}
+		if( parts.length == 0 || (parts[0] != "" && parts[0].charAt(1) != ":") )
+			while( base.length > 0 ) {
+				parts.unshift("..");
+				base.pop();
+			}
+		return parts.join("/");
+	}
+
 	public function chooseFile( callb : String -> Void, ?cancel : Void -> Void ) {
 
 		if( prefs.curFile == null ) {
@@ -1344,7 +1403,7 @@ class Main extends Model {
 		fs.val("");
 		fs.change(function(_) {
 			fs.off("change");
-			var path = fs.val().split("\\").join("/");
+			var path : String = fs.val();
 			fs.val("");
 			if( path == "" ) {
 				if( cancel != null ) cancel();
@@ -1353,19 +1412,7 @@ class Main extends Model {
 			fs.attr("nwworkingdir", ""); // keep path
 
 			// make the path relative
-			var parts = path.split("/");
-			var base = prefs.curFile.split("\\").join("/").split("/");
-			base.pop();
-			while( parts.length > 1 && base.length > 0 && parts[0] == base[0] ) {
-				parts.shift();
-				base.shift();
-			}
-			if( parts.length == 0 || (parts[0] != "" && parts[0].charAt(1) != ":") )
-				while( base.length > 0 ) {
-					parts.unshift("..");
-					base.pop();
-				}
-			var relPath = parts.join("/");
+			var relPath = makeRelativePath(path);
 
 			callb(relPath);
 		}).click();
@@ -1566,6 +1613,15 @@ class Main extends Model {
 						e.stopPropagation();
 					});
 					v.dblclick(function(_) editCell(c, v, sheet, index));
+					v[0].addEventListener("drop", function(e : js.html.DragEvent ) {
+						e.preventDefault();
+						e.stopPropagation();
+						if (e.dataTransfer.files.length > 0) {
+							untyped v.dropFile = e.dataTransfer.files[0].path;
+							editCell(c, v, sheet, index);
+							untyped v.dropFile = null;
+						}
+					});
 				case TList:
 					var key = sheet.getPath() + "@" + c.name + ":" + index;
 					v.click(function(e) {
@@ -1710,6 +1766,16 @@ class Main extends Model {
 							set(path);
 							save();
 						});
+					});
+					v[0].addEventListener("drop", function( e : js.html.DragEvent ) {
+						if ( e.dataTransfer.files.length > 0 ) {
+							e.preventDefault();
+							e.stopPropagation();
+							var path = untyped e.dataTransfer.files[0].path;
+							var relPath = makeRelativePath(path);
+							set(relPath);
+							save();
+						}
 					});
 				case TTilePos:
 
@@ -2385,38 +2451,12 @@ class Main extends Model {
 			refresh();
 	}
 
-	function cleanLayers() {
-		var count = 0;
-		for( s in base.sheets ) {
-			if( s.props.level == null ) continue;
-			var ts = s.props.level.tileSets;
-			var usedLayers = new Map();
-			for( c in s.columns ) {
-				switch( c.type ) {
-				case TList:
-					var sub = s.getSub(c);
-					if( !sub.hasColumn("data", [TTileLayer]) ) continue;
-					for( obj in sub.getLines() ) {
-						var v : cdb.Types.TileLayer = obj.data;
-						if( v == null || v.file == null ) continue;
-						usedLayers.set(v.file, true);
-					}
-				default:
-				}
-			}
-			for( f in Reflect.fields(ts) )
-				if( !usedLayers.get(f) ) {
-					Reflect.deleteField(ts, f);
-					count++;
-				}
-		}
-		return count;
-	}
-
 	function initMenu() {
 		var modifier = "ctrl";
-		if(Sys.systemName().indexOf("Mac") != -1) modifier = "cmd";
 		var menu = Menu.createWindowMenu();
+		if(Sys.systemName().indexOf("Mac") != -1) {
+			modifier = "cmd";
+		}
 		var mfile = new MenuItem({ label : "File" });
 		var mfiles = new Menu();
 		var mnew = new MenuItem( { label : "New", key : "N", modifiers : modifier } );
@@ -2459,7 +2499,7 @@ class Main extends Model {
 			i.click();
 		};
 		mclean.click = function() {
-			var lcount = cleanLayers();
+			var lcount = @:privateAccess base.cleanLayers();
 			var icount = 0;
 			if( imageBank != null ) {
 				var count = Reflect.fields(imageBank).length;
@@ -2483,6 +2523,7 @@ class Main extends Model {
 
 		var mrecents = new Menu();
 		for( file in prefs.recent ) {
+			if( file == null ) continue;
 			var m = new MenuItem( { label : file } );
 			m.click = function() {
 				prefs.curFile = file;
@@ -2511,8 +2552,19 @@ class Main extends Model {
 
 		};
 
-		menu.append(mfile);
-		menu.append(mdebug);
+		if(Sys.systemName().indexOf("Mac") != -1) {
+			menu.createMacBuiltin("CastleDB", {hideEdit: false, hideWindow: true}); // needed so copy&paste inside INPUTs work
+			menu.removeAt(0); // remove default menu
+			macEditMenu = menu.items[0]; // save default edit menu
+			menu.removeAt(0); // remove default edit menu
+			menu.insert(mfile, 0); // put it before the default Edit menu
+			mfiles.insert(mdebug, 7); // needs to go under File or it won't show
+		}
+		else {
+			menu.append(mfile);
+			menu.append(mdebug);
+		}
+
 		window.menu = menu;
 		if( prefs.windowPos.x > 0 && prefs.windowPos.y > 0 ) window.moveTo(prefs.windowPos.x, prefs.windowPos.y);
 		if( prefs.windowPos.w > 50 && prefs.windowPos.h > 50 ) window.resizeTo(prefs.windowPos.w, prefs.windowPos.h);
@@ -2563,9 +2615,11 @@ class Main extends Model {
 
 		lastSave = getFileTime();
 		super.load(noError);
+
 		initContent();
 		prefs.recent.remove(prefs.curFile);
-		prefs.recent.unshift(prefs.curFile);
+		if( prefs.curFile != null )
+			prefs.recent.unshift(prefs.curFile);
 		if( prefs.recent.length > 8 ) prefs.recent.pop();
 		mcompress.checked = base.compress;
 	}

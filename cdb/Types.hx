@@ -61,6 +61,10 @@ abstract ArrayRead<T>(Array<T>) from Array<T> {
 		return this.length;
 	}
 
+	@:to inline function toIterable() : Iterable<T> {
+		return this;
+	}
+
 	public inline function iterator() : ArrayIterator<T> {
 		return new ArrayIterator(castArray());
 	}
@@ -195,14 +199,21 @@ class Index<T> {
 
 	public function new(data:Data , name) {
 		this.name = name;
+		initSheet(data);
+		if( sheet == null )
+			throw "'" + name + "' not found in CDB data";
+	}
+
+	function initSheet(data:Data) {
 		for( s in data.sheets )
 			if( s.name == name ) {
 				all = cast s.lines;
 				this.sheet = s;
+				if( s.props.hasIndex )
+					for( i in 0...all.length )
+						(all[i] : Dynamic).index = i;
 				break;
 			}
-		if( sheet == null )
-			throw "'" + name + "' not found in CDB data";
 	}
 
 }
@@ -212,8 +223,8 @@ class IndexId<T,Kind> extends Index<T> {
 	var byIndex : Array<T>;
 	var byId : Map<String,T>;
 
-	public function new( data, name ) {
-		super(data, name);
+	override function initSheet(data:Data) {
+		super.initSheet(data);
 		byId = new Map();
 		byIndex = [];
 		for( c in sheet.columns )
@@ -230,6 +241,30 @@ class IndexId<T,Kind> extends Index<T> {
 				break;
 			default:
 			}
+	}
+
+	function reload( data : Data ) {
+		var oldId = byId;
+		var oldIndex = byIndex;
+		initSheet(data);
+		for( id in byId.keys() ) {
+			var oldObj = oldId.get(id);
+			if( oldObj == null ) continue;
+			var newObj = byId.get(id);
+			// replace the whole object content inplace
+			var fields = Reflect.fields(oldObj);
+			for( f in Reflect.fields(newObj) ) {
+				Reflect.setField(oldObj, f, Reflect.field(newObj,f));
+				fields.remove(f);
+			}
+			for( f in fields )
+				Reflect.deleteField(oldObj, f);
+			// erase newObj
+			var idx = byIndex.indexOf(newObj);
+			if( idx >= 0 ) byIndex[idx] = oldObj;
+			sheet.lines[sheet.lines.indexOf(newObj)] = oldObj;
+			byId.set(id, oldObj);
+		}
 	}
 
 	public inline function get( k : Kind ) {

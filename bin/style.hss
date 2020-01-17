@@ -297,6 +297,10 @@ div#menu {
 	}
 }
 
+.castle#content {
+	overflow: hidden;
+}
+
 .castle, .dialog-floating {
 
 	.tedit {

@@ -182,7 +182,7 @@ class Sheet {
 			changeLineOrder(arr);
 
 			return index - 1;
-		} else if( delta > 0 && sheet != null && index < sheet.lines.length - 1 ) {
+		} else if( delta > 0 && sheet != null ) {
 
 
 			for( i in 0...sheet.separators.length )
@@ -191,16 +191,18 @@ class Sheet {
 					return index;
 				}
 
-			var l = sheet.lines[index];
-			sheet.lines.splice(index, 1);
-			sheet.lines.insert(index + 1, l);
+			if( index < sheet.lines.length - 1 ) {
+				var l = sheet.lines[index];
+				sheet.lines.splice(index, 1);
+				sheet.lines.insert(index + 1, l);
 
-			var arr = [for( i in 0...sheet.lines.length ) i];
-			arr[index] = index + 1;
-			arr[index + 1] = index;
-			changeLineOrder(arr);
+				var arr = [for( i in 0...sheet.lines.length ) i];
+				arr[index] = index + 1;
+				arr[index + 1] = index;
+				changeLineOrder(arr);
 
-			return index + 1;
+				return index + 1;
+			}
 		}
 		return null;
 	}
@@ -274,6 +276,16 @@ class Sheet {
 			base.createSubSheet(this, c);
 		}
 		return null;
+	}
+
+	public function getDefaults() {
+		var props = {};
+		for( c in columns ) {
+			var d = base.getDefault(c);
+			if( d != null )
+				Reflect.setField(props, c.name, d);
+		}
+		return props;
 	}
 
 	public function objToString( obj : Dynamic, esc = false ) {
@@ -465,7 +477,7 @@ class Sheet {
 				for( cid in sheet.columns )
 					if( cid.type == TId ) {
 						var id = Reflect.field(obj, cid.name);
-						if( id != null )
+						if( id != null && id != "" )
 							this.index.get(id).ico = Reflect.field(obj, c.name);
 					}
 			}

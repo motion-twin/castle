@@ -77,7 +77,7 @@ class Database {
 		return smap.get(name);
 	}
 
-	public function createSheet( name : String ) {
+	public function createSheet( name : String, ?index : Int ) {
 		// name already exists
 		for( s in sheets )
 			if( s.name == name )
@@ -90,14 +90,48 @@ class Database {
 			props : {
 			},
 		};
-		return addSheet(s);
+		return addSheet(s, index);
 	}
 
-	function addSheet( s : cdb.Data.SheetData ) : Sheet {
+	public function moveSheet( s : Sheet, delta : Int ) {
+		var fsheets = [for( s in sheets ) if( !s.props.hide ) s];
+		var index = fsheets.indexOf(s);
+		var other = fsheets[index+delta];
+		if( index < 0 || other == null ) return false;
+
+		// move to new index
+		sheets.remove(s);
+		index = sheets.indexOf(other);
+		if( delta > 0 ) index++;
+		sheets.insert(index, s);
+
+		// move sub sheets as well !
+		var moved = [s];
+		var delta = 0;
+		for( ssub in sheets.copy() ) {
+			var parent = ssub.getParent();
+			if( parent != null && moved.indexOf(parent.s) >= 0 ) {
+				sheets.remove(ssub);
+				var idx = sheets.indexOf(s) + (++delta);
+				sheets.insert(idx, ssub);
+				moved.push(ssub);
+			}
+		}
+		updateSheets();
+		return true;
+	}
+
+	function addSheet( s : cdb.Data.SheetData, ?index : Int ) : Sheet {
 		var sobj = new Sheet(this, s);
-		data.sheets.push(s);
+		if( index != null )
+			data.sheets.insert(index, s);
+		else
+			data.sheets.push(s);
 		sobj.sync();
-		sheets.push(sobj);
+		if( index != null )
+			sheets.insert(index, sobj);
+		else
+			sheets.push(sobj);
 		return sobj;
 	}
 
@@ -127,9 +161,56 @@ class Database {
 	}
 
 	public function load( content : String ) {
-		data = cdb.Parser.parse(content);
+		data = cdb.Parser.parse(content, true);
+		if( sheets != null ) {
+			// reset old sheets (should not be used)
+			for( s in sheets ) @:privateAccess {
+				s.base = null;
+				s.index = null;
+				s.sheet = null;
+			}
+		}
 		sheets = [for( s in data.sheets ) new Sheet(this, s)];
+		for( s in sheets )
+			if( s.props.hasIndex ) {
+				// delete old index data, if present
+				var lines = s.getLines();
+				for( i in 0...lines.length )
+					Reflect.deleteField(lines[i],"index");
+			}
 		sync();
+	}
+
+	public function cleanup() {
+		cleanLayers();
+	}
+
+	function cleanLayers() {
+		var count = 0;
+		for( s in sheets ) {
+			if( s.props.level == null ) continue;
+			var ts = s.props.level.tileSets;
+			var usedLayers = new Map();
+			for( c in s.columns ) {
+				switch( c.type ) {
+				case TList:
+					var sub = s.getSub(c);
+					if( !sub.hasColumn("data", [TTileLayer]) ) continue;
+					for( obj in sub.getLines() ) {
+						var v : cdb.Types.TileLayer = obj.data;
+						if( v == null || v.file == null ) continue;
+						usedLayers.set(v.file, true);
+					}
+				default:
+				}
+			}
+			for( f in Reflect.fields(ts) )
+				if( !usedLayers.get(f) ) {
+					Reflect.deleteField(ts, f);
+					count++;
+				}
+		}
+		return count;
 	}
 
 	public function save() {
@@ -140,11 +221,6 @@ class Database {
 				var v : Dynamic = Reflect.field(s.props, p);
 				if( v == null || v == false ) Reflect.deleteField(s.props, p);
 			}
-			if( s.props.hasIndex ) {
-				var lines = s.getLines();
-				for( i in 0...lines.length )
-					lines[i].index = i;
-			}
 			if( s.props.hasGroup ) {
 				var lines = s.getLines();
 				var gid = 0;
@@ -152,9 +228,9 @@ class Database {
 				var titles = s.props.separatorTitles;
 				if( titles != null ) {
 					// skip first if at head
-					if( s.separators[sindex] == 0 && titles[sindex] != null ) sindex++;
+					while( s.separators[sindex] == 0 && titles[sindex] != null ) sindex++;
 					for( i in 0...lines.length ) {
-						if( s.separators[sindex] == i ) {
+						while( s.separators[sindex] == i ) {
 							if( titles[sindex] != null ) gid++;
 							sindex++;
 						}
@@ -183,7 +259,7 @@ class Database {
 						break;
 					}
 			id;
-		case TBool: false;
+		case TBool: c.opt ? true : false;
 		case TList: [];
 		case TProperties : {};
 		case TCustom(_), TTilePos, TTileLayer, TDynamic: null;
@@ -322,10 +398,13 @@ class Database {
 		return pairs;
 	}
 
-	public function getConvFunction( old : ColumnType, t : ColumnType ) {
+	public function getConvFunction( old : ColumnType, t : ColumnType, ?custom : { t : ColumnType, f : Dynamic -> Dynamic } ) {
 		var conv : Dynamic -> Dynamic = null;
-		if( Type.enumEq(old, t) )
+		if( Type.enumEq(old, t) ) {
+			if( custom != null && Type.enumEq(old,custom.t) )
+				return { f : custom.f };
 			return { f : null };
+		}
 		switch( [old, t] ) {
 		case [TInt, TFloat]:
 			// nothing
@@ -360,6 +439,8 @@ class Database {
 				map[p.a.i] = p.b.i;
 			}
 			conv = function(i) return map[i];
+		case [TEnum(values), TString]:
+			conv = function(i) return values[i];
 		case [TFlags(values1), TFlags(values2)]:
 			var map : Array<Null<Int>> = [];
 			for( p in makePairs([for( i in 0...values1.length ) { name : values1[i], i : i } ], [for( i in 0...values2.length ) { name : values2[i], i : i } ]) ) {
@@ -400,46 +481,7 @@ class Database {
 		var casesPairs = makePairs(old.cases, t.cases);
 
 		// build convert map
-		var convMap = [];
-		for( p in casesPairs ) {
-
-			if( p.b == null ) continue;
-
-			var id = Lambda.indexOf(t.cases, p.b);
-			var conv = {
-				def : ([id] : Array<Dynamic>),
-				args : [],
-			};
-			var args = makePairs(p.a.args, p.b.args);
-			for( a in args ) {
-				if( a.b == null ) {
-					conv.args[Lambda.indexOf(p.a.args, a.a)] = function(_) return null; // discard
-					continue;
-				}
-				var b = a.b, a = a.a;
-				var c = getConvFunction(a.type, b.type);
-				if( c == null )
-					throw "Cannot convert " + p.a.name + "." + a.name + ":" + typeStr(a.type) + " to " + p.b.name + "." + b.name + ":" + typeStr(b.type);
-				var f : Dynamic -> Dynamic = c.f;
-				if( f == null ) f = function(x) return x;
-				if( a.opt != b.opt ) {
-					var oldf = f;
-					if( a.opt ) {
-						f = function(v) { v = oldf(v); return v == null ? getDefault(b) : v; };
-					} else {
-						var def = getDefault(a);
-						f = function(v) return if( v == def ) null else oldf(v);
-					}
-				}
-				var index = Lambda.indexOf(p.b.args, b);
-				conv.args[Lambda.indexOf(p.a.args, a)] = function(v) return { v = f(v); return if( v == null && b.opt ) null else { index : index, v : v }; };
-			}
-			for( b in p.b.args )
-				conv.def.push(getDefault(b));
-			while( conv.def[conv.def.length - 1] == null )
-				conv.def.pop();
-			convMap[Lambda.indexOf(old.cases, p.a)] = conv;
-		}
+		var convMap : Array<{ def : Array<Dynamic>, args : Array<Dynamic -> Dynamic> }> = [];
 
 		function convertTypeRec( t : CustomType, v : Array<Dynamic> ) : Array<Dynamic> {
 			if( t == null )
@@ -467,6 +509,47 @@ class Database {
 				}
 			}
 			return v;
+		}
+
+
+		for( p in casesPairs ) {
+
+			if( p.b == null ) continue;
+
+			var id = Lambda.indexOf(t.cases, p.b);
+			var conv = {
+				def : ([id] : Array<Dynamic>),
+				args : [],
+			};
+			var args = makePairs(p.a.args, p.b.args);
+			for( a in args ) {
+				if( a.b == null ) {
+					conv.args[Lambda.indexOf(p.a.args, a.a)] = function(_) return null; // discard
+					continue;
+				}
+				var b = a.b, a = a.a;
+				var c = getConvFunction(a.type, b.type, { t : TCustom(old.name), f : convertTypeRec.bind(old) });
+				if( c == null )
+					throw "Cannot convert " + p.a.name + "." + a.name + ":" + typeStr(a.type) + " to " + p.b.name + "." + b.name + ":" + typeStr(b.type);
+				var f : Dynamic -> Dynamic = c.f;
+				if( f == null ) f = function(x) return x;
+				if( a.opt != b.opt ) {
+					var oldf = f;
+					if( a.opt ) {
+						f = function(v) { v = oldf(v); return v == null ? getDefault(b) : v; };
+					} else {
+						var def = getDefault(a);
+						f = function(v) return if( v == def ) null else oldf(v);
+					}
+				}
+				var index = Lambda.indexOf(p.b.args, b);
+				conv.args[Lambda.indexOf(p.a.args, a)] = function(v) return { v = f(v); return if( v == null && b.opt ) null else { index : index, v : v }; };
+			}
+			for( b in p.b.args )
+				conv.def.push(getDefault(b));
+			while( conv.def[conv.def.length - 1] == null )
+				conv.def.pop();
+			convMap[Lambda.indexOf(old.cases, p.a)] = conv;
 		}
 
 		// apply convert
@@ -520,7 +603,7 @@ class Database {
 		case TId, TRef(_), TLayer(_), TFile: esc ? '"'+val+'"' : val;
 		case TString:
 			var val : String = val;
-			if( ~/^[A-Za-z0-9_]+$/g.match(val) && !esc )
+			if( !esc )
 				val;
 			else
 				'"' + val.split("\\").join("\\\\").split('"').join("\\\"") + '"';
@@ -539,10 +622,34 @@ class Database {
 			var s = "#" + StringTools.hex(val, 6);
 			esc ? '"' + s + '"' : s;
 		case TTileLayer, TDynamic, TTilePos:
-			esc ? haxe.Json.stringify(val) : Std.string(val);
+			if( esc )
+				return haxe.Json.stringify(val);
+			return valueToString(val);
 		case TProperties, TList:
 			"???";
 		}
+	}
+
+	function valueToString( v : Dynamic ) {
+		switch (Type.typeof(v)) {
+		case TNull:
+			return "null";
+		case TObject:
+			var fl = [for( f in Reflect.fields(v) ) f+" : "+valueToString(Reflect.field(v,f))];
+			return fl.length == 0 ? "{}" : "{ " + fl.join(", ") + " }";
+		case TClass(c):
+			switch( Type.getClassName(c) ) {
+			case "Array":
+				var arr : Array<Dynamic> = v;
+				var vl = [for( v in arr ) valueToString(v)];
+				return vl.length == 0 ? "[]" : "["+vl.join(", ")+"]";
+			case "String":
+				return valToString(TString,v,true); // escape ! (valid JSON)
+			default:
+			}
+		default:
+		}
+		return Std.string(v);
 	}
 
 	public function typeValToString( t : CustomType, val : Array<Dynamic>, esc = false ) {
@@ -560,16 +667,18 @@ class Database {
 	}
 
 	public function parseDynamic( s : String ) : Dynamic {
-		s = ~/([{,]) *([a-zA-Z_][a-zA-Z0-9_]*) *:/g.replace(s, "$1\"$2\":");
+		s = ~/([{,])[ \t\n]*([a-zA-Z_][a-zA-Z0-9_]*)[ \t\n]*:/g.replace(s, "$1\"$2\":");
 		return haxe.Json.parse(s);
 	}
 
-	function parseVal( t : ColumnType, val : String ) : Dynamic {
+	public function parseValue( t : ColumnType, val : String, strictCheck = false ) : Dynamic {
 		switch( t ) {
 		case TInt:
 			if( ~/^-?[0-9]+$/.match(val) )
 				return Std.parseInt(val);
 		case TString:
+			if( !strictCheck )
+				return val;
 			if( val.charCodeAt(0) == '"'.code ) {
 				var esc = false;
 				var p = 1;
@@ -591,9 +700,10 @@ class Database {
 					}
 				}
 				return out.toString();
-			} else if( ~/^[A-Za-z0-9_]+$/.match(val) )
-				return val;
-			throw "String requires quotes '" + val + "'";
+			}
+			if( !~/^[A-Za-z0-9_]+$/.match(val) )
+				throw "String requires quotes '" + val + "'";
+			return val;
 		case TBool:
 			if( val == "true" ) return true;
 			if( val == "false" ) return false;
@@ -603,15 +713,24 @@ class Database {
 				return f;
 		case TCustom(t):
 			return parseTypeVal(getCustomType(t), val);
+		case TId:
+			if( r_ident.match(val) )
+				return val;
 		case TRef(t):
-			var r = getSheet(t).index.get(val);
-			if( r == null ) throw val + " is not a known " + t + " id";
-			return r.id;
+			if( r_ident.match(val) ) {
+				if( !strictCheck )
+					return val;
+				var r = getSheet(t).index.get(val);
+				if( r == null ) throw val + " is not a known " + t + " id";
+				return r.id;
+			}
 		case TColor:
 			if( val.charAt(0) == "#" )
 				val = "0x" + val.substr(1);
 			if( ~/^-?[0-9]+$/.match(val) || ~/^0x[0-9A-Fa-f]+$/.match(val) )
 				return Std.parseInt(val);
+		case TDynamic:
+			return parseDynamic(val);
 		default:
 		}
 		throw "'" + val + "' should be "+typeStr(t);
@@ -684,7 +803,7 @@ class Database {
 							vals.push(null);
 							continue;
 						}
-						var val = try parseVal(a.type, v) catch( e : String ) throw e + " for " + a.name;
+						var val = try parseValue(a.type, v, true) catch( e : String ) throw e + " for " + a.name;
 						vals.push(val);
 					}
 				}
@@ -814,8 +933,7 @@ class Database {
 				}
 	}
 
-	public function updateRefs( sheet : Sheet, refMap : Map < String, String > ) {
-
+	public function updateRefs( sheet : Sheet, refMap : Map <String, String> ) {
 		function convertTypeRec( t : CustomType, o : Array<Dynamic> ) {
 			var c = t.cases[o[0]];
 			for( i in 0...o.length - 1 ) {
@@ -854,8 +972,13 @@ class Database {
 				}
 	}
 
+	public function updateSheets() {
+		data.sheets = [for( s in sheets ) @:privateAccess s.sheet];
+	}
+
 	public function deleteSheet( sheet : Sheet ) {
 		sheets.remove(sheet);
+		updateSheets();
 		smap.remove(sheet.name);
 		for( c in sheet.columns )
 			switch( c.type ) {

@@ -545,7 +545,7 @@ class Main extends Model {
 		var width = v.size * (v.width == null?1:v.width);
 		var height = v.size * (v.height == null?1:v.height);
 		var max = width > height ? width : height;
-		var zoom = max <= 32 ? 2 : 64 / max;
+		var zoom = 1;//max <= 32 ? 2 : 64 / max;
 		var inl = isInline ? 'display:inline-block;' : '';
 		var url = "file://" + path;
 		var html = '<div class="tile" id="_c${id}" style="width : ${Std.int(width * zoom)}px; height : ${Std.int(height * zoom)}px; background : url(\'$url\') -${Std.int(v.size*v.x*zoom)}px -${Std.int(v.size*v.y*zoom)}px; opacity:0; $inl"></div>';
@@ -1545,7 +1545,7 @@ class Main extends Model {
 		for( cindex in 0...sheet.columns.length ) {
 			var c = sheet.columns[cindex];
 			var col = J("<th>");
-			col.text(c.name);
+			J("<span>").text(c.name).attr("title", c.name).appendTo(col);
 			col.addClass( "t_"+c.type.getName().substr(1).toLowerCase() );
 			if( sheet.props.displayColumn == c.name )
 				col.addClass("display");
@@ -2364,6 +2364,7 @@ class Main extends Model {
 			var s = base.sheets[i];
 			if( s.props.hide ) continue;
 			var li = J("<li>");
+			li.attr("title", s.name);
 			li.text(s.name).attr("id", "sheet_" + i).appendTo(sheets).click(function(_) selectSheet(s)).dblclick(function(_) {
 				li.empty();
 				J("<input>").val(s.name).appendTo(li).focus().blur(function(_) {

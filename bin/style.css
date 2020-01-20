@@ -1,3 +1,19 @@
+:root {
+	--main-bg-color: white;
+	--main-fg-color: black;
+	--bottombar-bg: #CCF;
+	--bottombar-sheetpicker-idle-bg: #88F;
+	--bottombar-sheetpicker-hover-bg: #aaf;
+	--bottombar-sheetpicker-active-bg: #eef;
+}
+
+/*
+:root {
+	--main-bg-color: #222;
+	--main-fg-color: #ddd;
+}
+*/
+
 html {
 	font-family: system-ui;
 	overflow-y: scroll;
@@ -206,7 +222,7 @@ div.modal #col_options.t_custom .custom {
 div#menu {
 	position: fixed;
 	z-index: 9;
-	background-color: #CCF;
+	background-color: var(--bottombar-bg);
 	bottom: 0;
 	border-top: 1px solid #88F;
 	width: 100%;
@@ -220,13 +236,12 @@ div#menu .errorMsg {
 }
 div#menu a {
 	line-height: 23px;
-	color: #000;
 	float: right;
 	padding: 0 4px;
 	border-left: 1px solid #88f;
 }
 div#menu a:hover {
-	background: white;
+	background: var(--bottombar-sheetpicker-active-bg);
 }
 div#menu ul.sheets {
 	margin-top: -1px;
@@ -234,21 +249,22 @@ div#menu ul.sheets {
 div#menu ul.sheets li {
 	height: 24px;
 	line-height: 24px;
-	background-color: #88F;
+	background: var(--bottombar-sheetpicker-idle-bg);
 	display: inline-block;
 	cursor: pointer;
 	border-right: 1px solid #44B;
-	width: 64px;
+	/*width: 64px;*/
 	overflow: hidden;
 	text-overflow: ellipsis;
+	padding: 0 2px;
 	text-align: center;
 }
 div#menu ul.sheets li:hover {
-	background-color: #9696FF;
+	background: var(--bottombar-sheetpicker-hover-bg);
 }
 div#menu ul.sheets li.active {
-	color: #252596;
-	background-color: #E0E0FF;
+	background: var(--bottombar-sheetpicker-active-bg);
+	font-weight: bold;
 }
 .castle .tedit, .dialog-floating .tedit {
 	height: 100%;
@@ -261,7 +277,8 @@ div#menu ul.sheets li.active {
 .castle table, .dialog-floating table {
 	width: 100%;
 	table-layout: fixed;
-	background-color: white;
+	background-color: var(--main-bg-color);
+	color: var(--main-fg-color);
 	border-collapse: collapse;
 	border-spacing: 0;
 	font-size: inherit;
@@ -416,7 +433,7 @@ div#menu ul.sheets li.active {
 .castle .tile, .dialog-floating .tile {
 	display: inline-block;
 	vertical-align: middle;
-	image-rendering: pixelated;
+	/*image-rendering: pixelated;*/
 }
 .castle td.t_bool, .dialog-floating td.t_bool {
 	text-align: center;
@@ -449,12 +466,14 @@ div#menu ul.sheets li.active {
 	font-style: italic;
 	color: #444488;
 	word-break: break-word;
-	hyphen: auto;
+	hyphens: auto;
 }
 .castle td.t_string textarea, .dialog-floating td.t_string textarea {
 	min-height: 100px;
 	width: 100%;
 	height: 100%;
+	font-family: inherit;
+	font-size: inherit;
 }
 .castle td.t_int.zero, .castle td.t_float.zero, .dialog-floating td.t_int.zero, .dialog-floating td.t_float.zero {
 	color: #888;

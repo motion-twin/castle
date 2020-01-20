@@ -22,7 +22,14 @@ typedef Prefs = {
 	recent : Array<String>,
 }
 
-typedef HistoryElement = { d : String, o : String };
+// state of the document in the undo stack
+typedef HistoryElement = {
+	// serialized as json
+	database : String,
+
+	// standard haxe serialization
+	openedList : String
+};
 
 class Model {
 
@@ -74,12 +81,13 @@ class Model {
 		return base.getSheet(name);
 	}
 
+	// history: if true, push curSavedData to undo stack
 	public function save( history = true ) {
 		var sdata = quickSave();
-		if( history && (curSavedData == null || sdata.d != curSavedData.d || sdata.o != curSavedData.o) ) {
+		if( history && (curSavedData == null || sdata.database != curSavedData.database || sdata.openedList != curSavedData.openedList) ) {
 			this.history.push(curSavedData);
 			this.redo = [];
-			if( this.history.length > 100 || sdata.d.length * (this.history.length + this.redo.length) * 2 > 300<<20 ) this.history.shift();
+			if( this.history.length > 100 || sdata.database.length * (this.history.length + this.redo.length) * 2 > 300<<20 ) this.history.shift();
 			curSavedData = sdata;
 		}
 		if( prefs.curFile == null )
@@ -89,11 +97,11 @@ class Model {
 		var tmpFile = tmp+"/"+prefs.curFile.split("\\").join("/").split("/").pop()+".lock";
 		try sys.io.File.saveContent(tmpFile,"LOCKED by CDB") catch( e : Dynamic ) {};
 		try {
-			sys.io.File.saveContent(prefs.curFile, sdata.d);
+			sys.io.File.saveContent(prefs.curFile, sdata.database);
 		} catch( e : Dynamic ) {
 			// retry once after EBUSY
 			haxe.Timer.delay(function() {
-				sys.io.File.saveContent(prefs.curFile, sdata.d);
+				sys.io.File.saveContent(prefs.curFile, sdata.database);
 			},500);
 		}
 		try sys.FileSystem.deleteFile(tmpFile) catch( e : Dynamic ) {};
@@ -113,14 +121,14 @@ class Model {
 
 	function quickSave() : HistoryElement {
 		return {
-			d : base.save(),
-			o : haxe.Serializer.run(openedList),
+			database : base.save(),
+			openedList : haxe.Serializer.run(openedList),
 		};
 	}
 
 	function quickLoad(sdata:HistoryElement) {
-		base.load(sdata.d);
-		openedList = haxe.Unserializer.run(sdata.o);
+		base.load(sdata.database);
+		openedList = haxe.Unserializer.run(sdata.openedList);
 	}
 
 	public function compressionEnabled() {

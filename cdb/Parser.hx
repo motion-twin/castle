@@ -52,9 +52,40 @@ class Parser {
 		}
 	}
 
-	public static function parse( content : String, editMode : Bool ) : Data {
+	// sys.ssl.Digest isn't available in macro mode.
+#if !macro
+	public static function getHash(path : String) : String {
+		var b : haxe.io.Bytes = haxe.io.Bytes.ofString(MultifileLoadSave.getMonoCDB(path));
+#if (hlps || hlxbo)
+		return haxe.crypto.Sha256.make(b).toHex();
+#else
+		return sys.ssl.Digest.make(b, SHA256).toHex();
+#end
+	}
+#end
+
+	public static function parseJson(content: String, editMode : Bool) : Data {
 		if( content == null ) throw "CDB content is null";
 		var data : Data = haxe.Json.parse(content);
+		if (data.format == MultifileLoadSave.MULTIFILE_FORMAT) {
+			throw "cannot use parseJson on a multifile cdb, use parseFrom instead";
+		}
+		postProcessParsedData(data, editMode);
+		return data;
+	}
+
+	public static function parseFrom(schemaPath : String, editMode : Bool) : Data {
+		Sys.println("parseFrom: " + schemaPath); // printCallstack
+		var content = MultifileLoadSave.readFile(schemaPath);
+		if( content == null ) throw "CDB content is null";
+		var data : Data = haxe.Json.parse(content);
+		if (data.format == MultifileLoadSave.MULTIFILE_FORMAT) {
+			MultifileLoadSave.parseMultifileContents(data, schemaPath);
+		}
+		return postProcessParsedData(data, editMode);
+	}
+
+	private static function postProcessParsedData(data : Data, editMode: Bool) : Data {
 		for( s in data.sheets )
 			for( c in s.columns ) {
 				c.type = getType(c.typeStr);
@@ -91,7 +122,14 @@ class Parser {
 		return data;
 	}
 
-	public static function save( data : Data ) : String {
+	public static function saveMultifile( data : Data, outPath : String ) {
+		MultifileLoadSave.saveMultifileRootSchema(data, outPath);
+		MultifileLoadSave.saveMultifileTableContents(data, outPath);
+	}
+
+	public static function saveMonofile( data : Data, compact : Bool = false ) : String {
+		var formatBackup = data.format;
+		data.format = null;
 		var save = [];
 		var seps = [];
 		for( s in data.sheets ) {
@@ -135,7 +173,7 @@ class Parser {
 					if( a.typeStr == null ) a.typeStr = cdb.Parser.saveType(a.type);
 					Reflect.deleteField(a, "type");
 				}
-		var str = haxe.Json.stringify(data, null, "\t");
+		var str = haxe.Json.stringify(data, null, compact ? null : "\t");
 		for( s in data.sheets ) {
 			for( c in s.columns )
 				c.type = save.shift();
@@ -149,6 +187,7 @@ class Parser {
 			for( c in t.cases )
 				for( a in c.args )
 					a.type = save.shift();
+		data.format = formatBackup;
 		return str;
 	}
 

@@ -130,7 +130,8 @@ class Module {
 			return macro : Void;
 		}
 		
-		var data = Parser.parse(sys.io.File.getContent(path));
+		var data = Parser.parseFrom(path, false);
+		
 		var r_chars = ~/[^A-Za-z0-9_]/g;
 		function makeTypeName( name : String ) {
 			var t = r_chars.replace(name, "_");
@@ -562,8 +563,8 @@ class Module {
 					if( onMissing != null ) c.onMissing = onMissing;
 					return c.apply(xml,reference);
 				}
-				public static function load( content : String, allowReload = false ) {
-					root = cdb.Parser.parse(content, false);
+				public static function loadFrom( path : String, allowReload = false ) {
+					root = cdb.Parser.parseFrom(path, false);
 					{$a{assigns}};
 				}
 			}).fields.concat(fields),

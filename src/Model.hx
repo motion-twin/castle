@@ -83,6 +83,11 @@ class Model {
 
 	// history: if true, push curSavedData to undo stack
 	public function save( history = true ) {
+		// TODO: due to multifile CDBs, we're actually saving twice here:
+		// - once with quicksave for the undo stack (as a big multimegabyte string)
+		// - and once more on disk as multi-files.
+		// This is inefficient.
+		// We should be more conservative in what we save (e.g. just the changed row)
 		var sdata = quickSave();
 		if( history && (curSavedData == null || sdata.database != curSavedData.database || sdata.openedList != curSavedData.openedList) ) {
 			this.history.push(curSavedData);
@@ -97,12 +102,10 @@ class Model {
 		var tmpFile = tmp+"/"+prefs.curFile.split("\\").join("/").split("/").pop()+".lock";
 		try sys.io.File.saveContent(tmpFile,"LOCKED by CDB") catch( e : Dynamic ) {};
 		try {
-			sys.io.File.saveContent(prefs.curFile, sdata.database);
+			base.saveMultifile(prefs.curFile);
 		} catch( e : Dynamic ) {
 			// retry once after EBUSY
-			haxe.Timer.delay(function() {
-				sys.io.File.saveContent(prefs.curFile, sdata.database);
-			},500);
+			haxe.Timer.delay(() -> base.saveMultifile(prefs.curFile), 500);
 		}
 		try sys.FileSystem.deleteFile(tmpFile) catch( e : Dynamic ) {};
 	}
@@ -121,13 +124,13 @@ class Model {
 
 	function quickSave() : HistoryElement {
 		return {
-			database : base.save(),
+			database : base.saveMonofile(),
 			openedList : haxe.Serializer.run(openedList),
 		};
 	}
 
 	function quickLoad(sdata:HistoryElement) {
-		base.load(sdata.database);
+		base.loadFrom(sdata.database);
 		openedList = haxe.Unserializer.run(sdata.openedList);
 	}
 
@@ -136,7 +139,7 @@ class Model {
 	}
 
 	function error( msg ) {
-		js.Browser.alert(msg);
+		js.Browser.alert(msg + "\n\n" + Main.getCallstackString(2));
 	}
 
 	function load(noError = false) {
@@ -144,7 +147,7 @@ class Model {
 		redo = [];
 		base = new cdb.Database();
 		try {
-			base.load(sys.io.File.getContent(prefs.curFile));
+			base.loadFrom(prefs.curFile);
 			if( prefs.curSheet > base.sheets.length )
 				prefs.curSheet = 0;
 			else while( base.sheets[prefs.curSheet].props.hide )

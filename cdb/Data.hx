@@ -144,7 +144,8 @@ typedef CustomType = {
 }
 
 typedef Data = {
-	sheets : Array<SheetData>,
-	customTypes : Array<CustomType>,
-	compress : Bool,
+	@:optional var format : String;
+	var sheets : Array<SheetData>;
+	var customTypes : Array<CustomType>;
+	var compress : Bool;
 }

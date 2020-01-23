@@ -160,8 +160,8 @@ class Database {
 		return data.customTypes;
 	}
 
-	public function load( content : String ) {
-		data = cdb.Parser.parse(content, true);
+	public function loadFrom( rootCDBPath : String ) {
+		data = cdb.Parser.parseFrom(rootCDBPath, true);
 		if( sheets != null ) {
 			// reset old sheets (should not be used)
 			for( s in sheets ) @:privateAccess {
@@ -213,7 +213,7 @@ class Database {
 		return count;
 	}
 
-	public function save() {
+	private function prepForSaving() {
 		// process
 		for( s in sheets ) {
 			// clean props
@@ -239,7 +239,16 @@ class Database {
 				}
 			}
 		}
-		return cdb.Parser.save(data);
+	}
+
+	public function saveMonofile() : String {
+		prepForSaving();
+		return cdb.Parser.saveMonofile(data);
+	}
+
+	public function saveMultifile(outPath : String) : Void {
+		prepForSaving();
+		cdb.Parser.saveMultifile(data, outPath);
 	}
 
 	public function getDefault( c : Column, ignoreOpt = false ) : Dynamic {

@@ -74,6 +74,27 @@ class Main extends Model {
 
 	var macEditMenu : MenuItem;
 
+	public static function getCallstackString(skip:Int = 1) {
+		var cs = haxe.CallStack.callStack();
+		var str = "===CALLSTACK===";
+		for (si in cs) {
+			if (skip > 0) {
+				skip--;
+				continue;
+			}
+			switch (si) {
+				case FilePos(junk, file, line, column):
+				{
+					if (file.lastIndexOf("/") >= 0)
+						file = file.substr(file.lastIndexOf("/") + 1);
+					str += "\n    " + file + ":" + line;
+				}
+				default: str += "\nunknown stack trace item";
+			}
+		};
+		return str;
+	}
+
 	function new() {
 		super();
 		window = js.node.webkit.Window.get();

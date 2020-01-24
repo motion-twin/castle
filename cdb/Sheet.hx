@@ -161,50 +161,56 @@ class Sheet {
 	}
 
 	public function moveLine( index : Int, delta : Int ) : Null<Int> {
-		if( delta < 0 && index > 0 ) {
+		if (sheet == null || delta == 0)
+			return null;
 
+		if (delta < 0 && index > 0) {
+			// Find whether there's a separator ABOVE the row that we're moving up.
+			// If so, move the separator BELOW the row instead of modifying the row's position.
 			for( i in 0...sheet.separators.length )
 				if( sheet.separators[i] == index ) {
+					// If there's several separators for the same index, take the last one.
 					var i = i;
 					while( i < sheet.separators.length - 1 && sheet.separators[i+1] == index )
 						i++;
+
+					// Move separator down one notch and finish
 					sheet.separators[i]++;
 					return index;
 				}
-
-			var l = sheet.lines[index];
-			sheet.lines.splice(index, 1);
-			sheet.lines.insert(index - 1, l);
-
-			var arr = [for( i in 0...sheet.lines.length ) i];
-			arr[index] = index - 1;
-			arr[index - 1] = index;
-			changeLineOrder(arr);
-
-			return index - 1;
-		} else if( delta > 0 && sheet != null ) {
-
-
+		} else if (delta > 0) {
+			// Find whether there's a separator BELOW the row that we're moving down.
+			// If so, move the separator ABOVE the row instead of modifying the row's position.
 			for( i in 0...sheet.separators.length )
 				if( sheet.separators[i] == index + 1 ) {
+					// Move separator up one notch and finish
 					sheet.separators[i]--;
 					return index;
 				}
 
-			if( index < sheet.lines.length - 1 ) {
-				var l = sheet.lines[index];
-				sheet.lines.splice(index, 1);
-				sheet.lines.insert(index + 1, l);
-
-				var arr = [for( i in 0...sheet.lines.length ) i];
-				arr[index] = index + 1;
-				arr[index + 1] = index;
-				changeLineOrder(arr);
-
-				return index + 1;
-			}
+			if (index >= sheet.lines.length - 1)
+				return null;
+		} else {
+			return null;
 		}
-		return null;
+		
+		var index1 = index;
+		var index2 = index + delta;
+
+		// Swap rows
+		var row1 = sheet.lines[index1];
+		var row2 = sheet.lines[index2];
+		sheet.lines[index1] = row2;
+		sheet.lines[index2] = row1;
+
+		// Index remapping table
+		var remap = [for( i in 0...sheet.lines.length ) i];
+		remap[index1] = index2;
+		remap[index2] = index1;
+
+		changeLineOrder(remap);
+
+		return index2;
 	}
 
 	public function deleteLine( index : Int ) {

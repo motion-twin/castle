@@ -1,3 +1,6 @@
+import js.html.Document;
+import js.html.BodyElement;
+
 class OperationStack {
 	var stack : Array<Operation>;
 	// Index of where are in the undo stack.
@@ -6,11 +9,14 @@ class OperationStack {
 	// Redo will increment it.
 	var cursor : Int;
 	var context : Main;
+
+	var savePoint : Int;
 	
 	public function new(context : Main) {
 		stack = new Array<Operation>();
 		this.context = context;
 		this.cursor = 0;
+		this.savePoint = 0;
 	}
 
 	public function push(op : Operation) : Operation {
@@ -19,6 +25,7 @@ class OperationStack {
 		op.apply(context);
 
 		context.refresh();
+
 
 		return op;
 	}
@@ -35,6 +42,7 @@ class OperationStack {
 
 		stack.push(op);
 		cursor++;
+		checkSavePoint();
 
 		return op;
 	}
@@ -47,6 +55,7 @@ class OperationStack {
 		}
 
 		cursor--;
+		checkSavePoint();
 
 		// rollback current top state
 		stack[cursor].rollback(context);
@@ -61,12 +70,42 @@ class OperationStack {
 		stack[cursor].apply(context);
 
 		cursor++;
+		checkSavePoint();
 	}
 
 	public function removeLastOp(op : Operation) {
-		if (stack.length > 0 && stack[stack.length - 1] == op)
+		if (stack.length > 0 && stack[stack.length - 1] == op) {
 			stack.pop();
-		else
+			cursor--;
+			checkSavePoint();
+		} else
 			trace("can't remove last op");
+	}
+
+	private var unsavedCSSLinkTag : js.html.LinkElement;
+
+	private function checkSavePoint() {
+		if (savePoint != cursor) {
+			context.window.title = "[*] CastleDB";
+			if (unsavedCSSLinkTag == null) {
+				unsavedCSSLinkTag = js.Browser.document.createLinkElement();
+				unsavedCSSLinkTag.rel = "stylesheet";
+				unsavedCSSLinkTag.type = "text/css";
+				unsavedCSSLinkTag.href = "unsaved.css";
+				js.Browser.document.body.appendChild(unsavedCSSLinkTag);
+			}
+		}
+		else {
+			context.window.title = "CastleDB";
+			if (unsavedCSSLinkTag != null) {
+				js.Browser.document.body.removeChild(unsavedCSSLinkTag);
+				unsavedCSSLinkTag = null;
+			}
+		}
+	}
+
+	public function setSavePointHere() {
+		savePoint = cursor;
+		checkSavePoint();
 	}
 }

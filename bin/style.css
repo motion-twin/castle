@@ -1,18 +1,36 @@
 :root {
-	--main-bg-color: white;
-	--main-fg-color: black;
-	--bottombar-bg: #CCF;
-	--bottombar-sheetpicker-idle-bg: #88F;
-	--bottombar-sheetpicker-hover-bg: #aaf;
-	--bottombar-sheetpicker-active-bg: #eef;
+	--main-bg-color:					#fff;
+	--main-fg-color:					#000;
+	--header-bg:						#333;
+	--header-fg:						#eee;
+	--header-border:					#888;
+	--separator-bg: 					#BCE;
+	--separator-border:					#9AD;
+	--separator-fg:						#236;
+	--bottombar-bg:						#CCF;
+	--bottombar-sheetpicker-idle-bg:	#88F;
+	--bottombar-sheetpicker-hover-bg:	#aaf;
+	--bottombar-sheetpicker-active-bg:	#eef;
+	--bottombar-border:					#236;
+	--startcell-bg:						#f0f0f8;
 }
 
-/*
-:root {
-	--main-bg-color: #222;
-	--main-fg-color: #ddd;
+.save-reminder {
+	display: none;
+	text-align: center;;
+	animation: blinker 2.5s ease-in-out infinite;
+	padding : 0;
+	margin: 0;
+	padding : 0.5em;
+	background: orange;
+	color: white;
+	font-size: large;
+	font-weight: bold;
 }
-*/
+
+@keyframes blinker {
+	50% { background: darkred; }
+}
 
 html {
 	font-family: system-ui;
@@ -23,7 +41,7 @@ body {
 	padding: 0;
 	background-color: #CCC;
 	box-sizing: border-box;
-	font-size: 12px;
+	font-size:12px;
 }
 ul, li {
 	margin: 0;
@@ -224,7 +242,7 @@ div#menu {
 	z-index: 9;
 	background-color: var(--bottombar-bg);
 	bottom: 0;
-	border-top: 1px solid #88F;
+	border-top: 1px solid var(--bottombar-border);
 	width: 100%;
 	user-select: none;
 }
@@ -238,7 +256,7 @@ div#menu a {
 	line-height: 23px;
 	float: right;
 	padding: 0 4px;
-	border-left: 1px solid #88f;
+	border-left: 1px solid var(--bottombar-border);
 }
 div#menu a:hover {
 	background: var(--bottombar-sheetpicker-active-bg);
@@ -252,11 +270,12 @@ div#menu ul.sheets li {
 	background: var(--bottombar-sheetpicker-idle-bg);
 	display: inline-block;
 	cursor: pointer;
-	border-right: 1px solid #44B;
-	/*width: 64px;*/
+	border-right: 1px solid var(--bottombar-border);
+	border-top: 1px solid var(--bottombar-border);
+	width: 64px;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	padding: 0 2px;
+	padding: 0 4px;
 	text-align: center;
 }
 div#menu ul.sheets li:hover {
@@ -265,6 +284,7 @@ div#menu ul.sheets li:hover {
 div#menu ul.sheets li.active {
 	background: var(--bottombar-sheetpicker-active-bg);
 	font-weight: bold;
+	border-top: 1px solid var(--bottombar-sheetpicker-active-bg);
 }
 .castle .tedit, .dialog-floating .tedit {
 	height: 100%;
@@ -326,7 +346,7 @@ div#menu ul.sheets li.active {
 .castle td.start, .dialog-floating td.start {
 	text-align: center;
 	cursor: pointer;
-	background-color: #EFF1F8;
+	background-color: var(--startcell-bg);
 }
 .castle tr.cursorLine td.start, .dialog-floating tr.cursorLine td.start {
 	background-color: #374780 !important;
@@ -336,12 +356,12 @@ div#menu ul.sheets li.active {
 	cursor: nw-resize;
 }
 .castle tr.separator, .dialog-floating tr.separator {
-	background-color: #BFC8E3;
+	background-color: var(--separator-bg);
 }
 .castle tr.separator td, .dialog-floating tr.separator td {
-	border-top: 1px solid #99A6D2;
+	border-top: 1px solid var(--separator-border);
 	padding-top: 6px;
-	color: #2B3762;
+	color: var(--separator-fg);
 	font-weight: bold;
 	padding-left: 20px;
 }
@@ -387,9 +407,9 @@ div#menu ul.sheets li.active {
 .castle th, .dialog-floating th {
 	font-weight: normal;
 	text-align: center;
-	border-left: 1px solid #888;
-	background-color: #333;
-	color: #EEE;
+	border-left: 1px solid var(--header-border);
+	background-color: var(--header-bg);
+	color: var(--header-fg);
 	width: auto;
 }
 .castle tr.head th, .dialog-floating tr.head th {
@@ -453,7 +473,7 @@ div#menu ul.sheets li.active {
 	text-align: right;
 	font-size: 80%;
 	min-width: 70px;
-	color: #444466;
+	color: #446;
 }
 .castle td.t_int, .castle td.t_float, .dialog-floating td.t_int, .dialog-floating td.t_float {
 	text-align: center;
@@ -462,9 +482,9 @@ div#menu ul.sheets li.active {
 	text-align: center;
 }
 .castle td.t_string, .dialog-floating td.t_string {
-	font-size: 90%;
+	/*font-size: 90%;*/
 	font-style: italic;
-	color: #444488;
+	color: #448;
 	word-break: break-word;
 	hyphens: auto;
 }
@@ -571,7 +591,7 @@ div#menu ul.sheets li.active {
 #content .level .palette {
 	border: 1px solid #aaa;
 	min-width: 385px;
-	background-color: #000000;
+	background-color: #000;
 	background-color: rgba(0,0,0,0.7);
 	position: fixed;
 	right: 30px;

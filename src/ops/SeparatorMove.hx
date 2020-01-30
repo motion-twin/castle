@@ -15,15 +15,7 @@ class SeparatorMove implements Operation {
 
 	private function _apply(context: Main, pos1: Int, pos2: Int) {
 		var table = context.base.getSheet(tableName);
-
-		cdb.MultifileLoadSave.deleteRowFile(context.schemaPath, table.sheet, oldPos);
-		cdb.MultifileLoadSave.deleteRowFile(context.schemaPath, table.sheet, newPos);
-
 		table.separators[sepIdx] = pos2;
-
-		cdb.MultifileLoadSave.saveRow(context.schemaPath, table.sheet, oldPos);
-		cdb.MultifileLoadSave.saveRow(context.schemaPath, table.sheet, newPos);
-		cdb.MultifileLoadSave.saveTableIndex(context.schemaPath, table.sheet);
 	}
 
 	public function apply(context : Main) : Void {

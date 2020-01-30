@@ -54,7 +54,7 @@ class Main extends Model {
 
 	static var UID = 0;
 
-	var window : js.node.webkit.Window;
+	public var window : js.node.webkit.Window;
 	var viewSheet : Sheet;
 	var mousePos : { x : Int, y : Int };
 	var typesStr : String;
@@ -100,6 +100,7 @@ class Main extends Model {
 		window = js.node.webkit.Window.get();
 		window.on("resize", onResize);
 		window.on("focus", function(_) js.node.webkit.App.clearCache());
+		window.zoomLevel = prefs.zoomLevel;
 		initMenu();
 		levels = [];
 		mousePos = { x : 0, y : 0 };
@@ -143,7 +144,6 @@ class Main extends Model {
 		op.setCurrentState(this);
 		opStack.pushNoApply(op);
 		refresh();
-		nuclearSave();
 	}
 
 	function rollbackSnapshot(op) {
@@ -1234,8 +1234,8 @@ save();
 		}
 		inline function changed() {
 			updateClasses(v, column, val);
-			this.changed(sheet, column, rowIndex, old);
 			commitOpAndSave();
+			this.changed(sheet, column, rowIndex, old);
 		}
 
 		var html = getValue();
@@ -2742,13 +2742,11 @@ save();
 	function doUndo() {
 		opStack.undo();
 		initContent();
-		refresh();
 	}
 
 	function doRedo() {
 		opStack.redo();
 		initContent();
-		refresh();
 	}
 
 	function initMenu() {
@@ -2763,13 +2761,13 @@ save();
 		var mnew = new MenuItem( { label : "New", key : "N", modifiers : modifier } );
 		var mopen = new MenuItem( { label : "Open...", key : "O", modifiers : modifier } );
 		var mrecent = new MenuItem( { label : "Recent Files" } );
-		var msave = new MenuItem( { label : "Save As...", key : "S", modifiers : "shift+" + modifier } );
+		var msave = new MenuItem( { label : "Save", key : "S", modifiers : modifier } );
+		var msaveas = new MenuItem( { label : "Save As...", key : "S", modifiers : "shift+" + modifier } );
 		var mclean = new MenuItem( { label : "Clean Images" } );
 		var mexport = new MenuItem( { label : "Export Localized texts" } );
 		mcompress = new MenuItem( { label : "Enable Compression", type : MenuItemType.checkbox } );
 		mcompress.click = function() {
 			base.compress = mcompress.checked;
-			nuclearSave();
 		};
 		var mexit = new MenuItem( { label : "Exit", key : "Q", modifiers : modifier } );
 		var mdebug = new MenuItem( { label : "Dev" } );
@@ -2789,6 +2787,13 @@ save();
 			i.click();
 		};
 		msave.click = function() {
+			if (prefs.curFile == "" || prefs.curFile == null) {
+				msaveas.click();
+			} else {
+				nuclearSave();
+			}
+		};
+		msaveas.click = function() {
 			var i = J("<input>").attr("type", "file").attr("nwsaveas","new.cdb").css("display","none").change(function(e) {
 				var j = JTHIS;
 				prefs.curFile = j.val();
@@ -2831,7 +2836,7 @@ save();
 		}
 		mrecent.submenu = mrecents;
 
-		for( m in [mnew, mopen, mrecent, msave, mclean, mcompress, mexport, mexit] )
+		for( m in [mnew, mopen, mrecent, msave, msaveas, mclean, mcompress, mexport, mexit] )
 			mfiles.append(m);
 		mfile.submenu = mfiles;
 
@@ -2850,6 +2855,30 @@ save();
 
 		};
 
+
+		trace(prefs.zoomLevel);
+		window.zoomLevel = prefs.zoomLevel;
+		var mi_zoom = new MenuItem({label: "Zoom"});
+		var m_zoom = new Menu();
+		mi_zoom.submenu = m_zoom;
+		var mi_zoomLevels = new Map<Int, MenuItem>();
+		for (i in -4...7) {
+			var mi_zoom_n = new MenuItem({label: "" + Math.round(Math.pow(1.2, i) * 100) + "%", type: checkbox});
+			mi_zoom_n.click = function() {
+				if (mi_zoomLevels.exists(window.zoomLevel))
+					mi_zoomLevels[window.zoomLevel].checked = false;
+				window.zoomLevel = i;
+				mi_zoom_n.checked = true;
+				prefs.zoomLevel = window.zoomLevel;
+				savePrefs();
+			};
+			m_zoom.append(mi_zoom_n);
+			mi_zoomLevels[i] = mi_zoom_n;
+		}
+		if (mi_zoomLevels.exists(window.zoomLevel))
+			mi_zoomLevels[window.zoomLevel].checked = true;
+
+
 		if(Sys.systemName().indexOf("Mac") != -1) {
 			menu.createMacBuiltin("CastleDB", {hideEdit: false, hideWindow: true}); // needed so copy&paste inside INPUTs work
 			menu.removeAt(0); // remove default menu
@@ -2861,6 +2890,7 @@ save();
 		else {
 			menu.append(mfile);
 //			menu.append(mi_edit);
+			menu.append(mi_zoom);
 			menu.append(mdebug);
 		}
 

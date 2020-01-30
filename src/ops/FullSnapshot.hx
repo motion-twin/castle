@@ -20,12 +20,10 @@ class FullSnapshot implements Operation {
 
 	public function apply(context: Main) : Void {
 		context.base.loadJson(currentState);
-		context.nuclearSave();
 	}
 
 	public function rollback(context: Main) : Void {
 		context.base.loadJson(previousState);
-		context.nuclearSave();
 	}
 }
 

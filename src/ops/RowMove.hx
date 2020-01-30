@@ -1,6 +1,5 @@
 package ops;
 
-import cdb.MultifileLoadSave;
 import cdb.NestedRowPos;
 
 class RowMove implements Operation {
@@ -24,22 +23,12 @@ class RowMove implements Operation {
 		table[index1] = row2;
 		table[index2] = row1;
 
+		/*
 		// Index remapping table
 		var remap = [for( i in 0...table.length ) i];
 		remap[index1] = index2;
 		remap[index2] = index1;
-		
-		// if it's a row in a top-level table, we just need to update the index
-		// if it's a row in a subtable, we have to re-save the root row
-		if (initialPos.length == 1)
-			MultifileLoadSave.saveTableIndex(
-				context.schemaPath,
-				context.base.getSheet(initialPos[0].col).sheet);
-		else
-			MultifileLoadSave.saveRow(
-				context.schemaPath,
-				context.base.getSheet(initialPos[0].col).sheet,
-				initialPos[0].row);
+		*/
 	}
 
 	public function rollback(context: Main) : Void {

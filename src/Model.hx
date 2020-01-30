@@ -20,6 +20,7 @@ typedef Prefs = {
 	curFile : String,
 	curSheet : Int,
 	recent : Array<String>,
+	zoomLevel : Int,
 }
 
 class Model {
@@ -45,6 +46,7 @@ class Model {
 			curFile : null,
 			curSheet : 0,
 			recent : [],
+			zoomLevel: 0,
 		};
 		existsCache = new Map();
 		loadPrefs();
@@ -81,7 +83,8 @@ class Model {
 		if( prefs.curFile == null )
 			return;
 		trace("full save");
-		base.saveMultifile(prefs.curFile);
+		opStack.setSavePointHere();
+		js.Browser.window.setTimeout(function() base.saveMultifile(prefs.curFile));
 	}
 
 	function saveImages() {

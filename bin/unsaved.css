@@ -1,0 +1,16 @@
+:root {
+    --header-bg:                        #600;
+    --separator-bg: 					#ECB;
+	--separator-border:					#DA9;
+	--separator-fg:						#632;
+	--bottombar-bg:                     #FCC;
+	--bottombar-sheetpicker-idle-bg:    #F88;
+	--bottombar-sheetpicker-hover-bg:   #Faa;
+    --bottombar-sheetpicker-active-bg:  #Fee;
+    --bottombar-border:                 #632;
+    --startcell-bg:                     #f8f0f0;
+}
+
+.save-reminder {
+    display: block;
+}

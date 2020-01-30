@@ -250,11 +250,14 @@ class Main extends Model {
 		var inCDB = level == null && pages.curPage < 0;
 
 		switch( e.keyCode ) {
+		// Insert row
 		case K.INSERT if( inCDB ):
 			if( cursor.s != null ) {
 				newLine(cursor.s, cursor.y);
 				moveCursor(0, 1, false, false);
 			}
+
+		// Delete row
 		case K.DELETE if( inCDB ):
 			J(".selected.deletable").change();
 			if( cursor.s != null ) {
@@ -288,22 +291,36 @@ class Main extends Model {
 			}
 			refresh();
 			save();
+
+		// Move cursor up
 		case K.UP:
 			moveCursor(0, -1, e.shiftKey, ctrlDown);
 			e.preventDefault();
+
+		// Move cursor down
 		case K.DOWN:
 			moveCursor(0, 1, e.shiftKey, ctrlDown);
 			e.preventDefault();
+
+		// Move cursor left
 		case K.LEFT:
 			moveCursor(-1, 0, e.shiftKey, ctrlDown);
+		
+		// Move cursor right
 		case K.RIGHT:
 			moveCursor(1, 0, e.shiftKey, ctrlDown);
+		
+		// Open list
 		case K.ENTER if( inCDB ):
 			// open list
 			if( cursor.s != null && J(".cursor.t_list,.cursor.t_properties").click().length > 0 )
 				e.preventDefault();
+		
+		// Prevent default behavior (page down)
 		case K.SPACE:
 			e.preventDefault(); // scrolling
+
+		// Undo
 		case 'Z'.code if( ctrlDown && pages.curPage < 0 ):
 			if( history.length > 0 ) {
 				redo.push(curSavedData);
@@ -312,6 +329,8 @@ class Main extends Model {
 				initContent();
 				save(false);
 			}
+		
+		// Redo
 		case 'Y'.code if( ctrlDown && pages.curPage < 0 ):
 			if( redo.length > 0 ) {
 				history.push(curSavedData);
@@ -320,6 +339,8 @@ class Main extends Model {
 				initContent();
 				save(false);
 			}
+		
+		// Copy
 		case 'C'.code if( ctrlDown ):
 			if( cursor.s != null ) {
 				var s = getSelection();
@@ -337,9 +358,13 @@ class Main extends Model {
 				}
 				setClipBoard([for( x in s.x1...s.x2+1 ) cursor.s.columns[x]], data);
 			}
+		
+		// Cut
 		case 'X'.code if( ctrlDown ):
 			onKey(cast { keyCode : 'C'.code, ctrlKey : true });
 			onKey(cast { keyCode : K.DELETE } );
+		
+		// Paste
 		case 'V'.code if( ctrlDown ):
 			if( cursor.s == null || clipboard == null || js.node.webkit.Clipboard.getInstance().get("text")  != clipboard.text )
 				return;
@@ -376,6 +401,9 @@ class Main extends Model {
 			sheet.sync();
 			refresh();
 			save();
+		
+		// Control-tab: next table
+		// Tab: next column
 		case K.TAB:
 			if( ctrlDown ) {
 				var sheets = base.sheets.filter(function(s) return !s.props.hide);
@@ -388,6 +416,7 @@ class Main extends Model {
 			} else {
 				moveCursor(e.shiftKey? -1:1, 0, false, false);
 			}
+		
 		case K.ESC:
 			if( cursor.s != null && cursor.s.parent != null ) {
 				var p = cursor.s.parent;
@@ -397,11 +426,13 @@ class Main extends Model {
 				cursor.select = null;
 				updateCursor();
 			}
-		case K.F2 if( inCDB ):
-			J(".cursor").not(".edit").dblclick();
+		
+		// F3: Show references
 		case K.F3:
 			if( cursor.s != null )
 				showReferences(cursor.s, cursor.y);
+
+		// F4: Go to referenced sheet
 		case K.F4:
 			if( cursor.s != null && cursor.x >= 0 ) {
 				var c = cursor.s.columns[cursor.x];
@@ -422,12 +453,15 @@ class Main extends Model {
 				default:
 				}
 			}
+
+		// Ctrl-F: find
 		case "F".code if( ctrlDown && inCDB ):
 			var s = J("#search");
 			s.show();
 			s.find("input").focus().select();
 		default:
 		}
+
 		if( level != null ) level.onKey(e);
 		if( pages.curPage >= 0 ) pages.onKey(e);
 	}

@@ -22,26 +22,21 @@ typedef Prefs = {
 	recent : Array<String>,
 }
 
-// state of the document in the undo stack
-typedef HistoryElement = {
-	// serialized as json
-	database : String,
-
-	// standard haxe serialization
-	openedList : String
-};
-
 class Model {
 
 	public var base : cdb.Database;
 	var prefs : Prefs;
 	var imageBank : Dynamic<String>;
-	var openedList : Map<String,Bool>;
+	public var openedList : Map<String,Bool>;
 	var existsCache : Map<String,{ t : Float, r : Bool }>;
 
-	var curSavedData : HistoryElement;
-	var history : Array<HistoryElement>;
-	var redo : Array<HistoryElement>;
+	public var opStack : OperationStack;
+
+	public var schemaPath(get, never) : String;
+
+	public function get_schemaPath() : String {
+		return prefs.curFile;
+	}
 
 	function new() {
 		openedList = new Map();
@@ -83,31 +78,10 @@ class Model {
 
 	// history: if true, push curSavedData to undo stack
 	public function save( history = true ) {
-		// TODO: due to multifile CDBs, we're actually saving twice here:
-		// - once with quicksave for the undo stack (as a big multimegabyte string)
-		// - and once more on disk as multi-files.
-		// This is inefficient.
-		// We should be more conservative in what we save (e.g. just the changed row)
-		var sdata = quickSave();
-		if( history && (curSavedData == null || sdata.database != curSavedData.database || sdata.openedList != curSavedData.openedList) ) {
-			this.history.push(curSavedData);
-			this.redo = [];
-			if( this.history.length > 100 || sdata.database.length * (this.history.length + this.redo.length) * 2 > 300<<20 ) this.history.shift();
-			curSavedData = sdata;
-		}
 		if( prefs.curFile == null )
 			return;
-		var tmp = Sys.getEnv("TMP");
-		if( tmp == null ) tmp = Sys.getEnv("TMPDIR");
-		var tmpFile = tmp+"/"+prefs.curFile.split("\\").join("/").split("/").pop()+".lock";
-		try sys.io.File.saveContent(tmpFile,"LOCKED by CDB") catch( e : Dynamic ) {};
-		try {
-			base.saveMultifile(prefs.curFile);
-		} catch( e : Dynamic ) {
-			// retry once after EBUSY
-			haxe.Timer.delay(() -> base.saveMultifile(prefs.curFile), 500);
-		}
-		try sys.FileSystem.deleteFile(tmpFile) catch( e : Dynamic ) {};
+		trace("full save");
+		base.saveMultifile(prefs.curFile);
 	}
 
 	function saveImages() {
@@ -122,18 +96,6 @@ class Model {
 			sys.io.File.saveContent(path, untyped haxe.Json.stringify(imageBank, null, "\t"));
 	}
 
-	function quickSave() : HistoryElement {
-		return {
-			database : base.saveMonofile(),
-			openedList : haxe.Serializer.run(openedList),
-		};
-	}
-
-	function quickLoad(sdata:HistoryElement) {
-		base.loadFrom(sdata.database);
-		openedList = haxe.Unserializer.run(sdata.openedList);
-	}
-
 	public function compressionEnabled() {
 		return base.compress;
 	}
@@ -143,8 +105,7 @@ class Model {
 	}
 
 	function load(noError = false) {
-		history = [];
-		redo = [];
+		opStack = new OperationStack(cast(this, Main));
 		base = new cdb.Database();
 		try {
 			base.loadFrom(prefs.curFile);
@@ -165,7 +126,6 @@ class Model {
 		} catch( e : Dynamic ) {
 			imageBank = null;
 		}
-		curSavedData = quickSave();
 	}
 
 	function cleanImages() {

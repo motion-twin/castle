@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+import ops.FullSnapshot;
 import cdb.Data;
 import cdb.Sheet;
 
@@ -65,7 +66,6 @@ class Main extends Model {
 	var cursor : Cursor;
 	var checkCursor : Bool;
 	var sheetCursors : Map<String, Cursor>;
-	var lastSave : Float;
 	var colProps : { sheet : String, ref : Column, index : Null<Int> };
 	var levels : Array<Level>;
 	var level : Level;
@@ -130,9 +130,172 @@ class Main extends Model {
 		};
 		pages = new JqPages(this);
 		load(true);
-		var t = new haxe.Timer(1000);
-		t.run = checkTime;
 	}
+
+	//-------------------------------------------------------------------------
+	// Snapshot
+
+	function prepSnapshot(operationName : String = "unknown operation") {
+		return new ops.FullSnapshot().setPreviousState(this);
+	}
+
+	function commitSnapshot(op: FullSnapshot) {
+		op.setCurrentState(this);
+		opStack.pushNoApply(op);
+		refresh();
+		nuclearSave();
+	}
+
+	function rollbackSnapshot(op) {
+		op.rollback(this);
+	}
+
+	//-------------------------------------------------------------------------
+
+	function doDeleteSelectedRow() {
+		J(".selected.deletable").change();
+		if( cursor.s == null )
+			return;
+
+		var op = prepSnapshot();
+		if( cursor.s.props.isProps ) {
+			var l = getLine(cursor.s, cursor.y);
+			if( l != null )
+				Reflect.deleteField(cursor.s.lines[0], l.attr("colName"));
+		} else if( cursor.x < 0 ) {
+			var s = getSelection();
+			var y = s.y2;
+			while( y >= s.y1 ) {
+				cursor.s.deleteLine(y);
+				y--;
+			}
+			cursor.y = s.y1;
+			cursor.select = null;
+		} else {
+			var s = getSelection();
+			for( y in s.y1...s.y2 + 1 ) {
+				var obj = cursor.s.lines[y];
+				for( x in s.x1...s.x2+1 ) {
+					var c = cursor.s.columns[x];
+					var def = base.getDefault(c);
+					if( def == null )
+						Reflect.deleteField(obj, c.name);
+					else
+						Reflect.setField(obj, c.name, def);
+				}
+			}
+		}
+
+		commitSnapshot(op);
+	}
+
+	function doCopy() {
+		if (cursor.s == null) {
+			return;
+		}
+
+		var s = getSelection();
+		var data = [];
+		for (y in s.y1...s.y2+1) {
+			var obj = cursor.s.lines[y];
+			var out = {};
+			for( x in s.x1...s.x2+1 ) {
+				var c = cursor.s.columns[x];
+				var v = Reflect.field(obj, c.name);
+				if( v != null )
+					Reflect.setField(out, c.name, v);
+			}
+			data.push(out);
+		}
+
+		setClipBoard([for( x in s.x1...s.x2+1 ) cursor.s.columns[x]], data);
+	}
+
+	function doPaste() {
+		if( cursor.s == null || clipboard == null || js.node.webkit.Clipboard.getInstance().get("text")  != clipboard.text )
+			return;
+
+		var snapshot = prepSnapshot();
+
+		var sheet = cursor.s;
+		var posX = cursor.x < 0 ? 0 : cursor.x;
+		var posY = cursor.y < 0 ? 0 : cursor.y;
+
+		for (obj1 in clipboard.data) {
+			if (posY == sheet.lines.length) {
+				sheet.newLine();
+			}
+
+			var obj2 = sheet.lines[posY];
+			for (cid in 0...clipboard.schema.length) {
+				var c1 = clipboard.schema[cid];
+				var c2 = sheet.columns[cid + posX];
+
+				if (c2 == null) {
+					continue;
+				}
+
+				var f = base.getConvFunction(c1.type, c2.type);
+				var v : Dynamic = Reflect.field(obj1, c1.name);
+
+				if (f == null) {
+					v = base.getDefault(c2);
+				} else {
+					// make a deep copy to erase references
+					if (v != null) {
+						v = haxe.Json.parse(haxe.Json.stringify(v));
+					}
+					if (f.f != null) {
+						v = f.f(v);
+					}
+				}
+
+				if (v == null && !c2.opt) {
+					v = base.getDefault(c2);
+				}
+
+				if (v == null) {
+					Reflect.deleteField(obj2, c2.name);
+				} else {
+					Reflect.setField(obj2, c2.name, v);
+				}
+			}
+
+			posY++;
+		}
+
+		sheet.sync();
+
+		//refresh();
+		//save();
+		commitSnapshot(snapshot);
+	}
+
+	function openTableReferencedBySelectedCell() {
+		if (cursor.s == null || cursor.x < 0)
+			return;
+
+		var c = cursor.s.columns[cursor.x];
+		var id = Reflect.field(cursor.s.lines[cursor.y], c.name);
+
+		switch( c.type ) {
+		case TRef(s):
+			var sd = base.getSheet(s);
+			if( sd == null ) {
+				var k = sd.index.get(id);
+				if( k != null ) {
+					var index = Lambda.indexOf(sd.lines, k.obj);
+					if( index >= 0 ) {
+						sheetCursors.set(s, { s : sd, x : 0, y : index } );
+						selectSheet(sd);
+					}
+				}
+			}
+		default: // no-op
+		}
+	}
+
+	//-------------------------------------------------------------------------
 
 	function searchFilter( filter : String ) {
 		if( filter == "" ) filter = null;
@@ -187,7 +350,7 @@ class Main extends Model {
 			return;
 		if( cursor.x == -1 && ctrl ) {
 			if( dy != 0 )
-				moveLine(cursor.s, cursor.y, dy);
+				cursor.s.moveLine(opStack, cursor.y, dy);
 			updateCursor();
 			return;
 		}
@@ -259,38 +422,7 @@ class Main extends Model {
 
 		// Delete row
 		case K.DELETE if( inCDB ):
-			J(".selected.deletable").change();
-			if( cursor.s != null ) {
-				if( cursor.s.props.isProps ) {
-					var l = getLine(cursor.s, cursor.y);
-					if( l != null )
-						Reflect.deleteField(cursor.s.lines[0], l.attr("colName"));
-				} else if( cursor.x < 0 ) {
-					var s = getSelection();
-					var y = s.y2;
-					while( y >= s.y1 ) {
-						cursor.s.deleteLine(y);
-						y--;
-					}
-					cursor.y = s.y1;
-					cursor.select = null;
-				} else {
-					var s = getSelection();
-					for( y in s.y1...s.y2 + 1 ) {
-						var obj = cursor.s.lines[y];
-						for( x in s.x1...s.x2+1 ) {
-							var c = cursor.s.columns[x];
-							var def = base.getDefault(c);
-							if( def == null )
-								Reflect.deleteField(obj, c.name);
-							else
-								Reflect.setField(obj, c.name, def);
-						}
-					}
-				}
-			}
-			refresh();
-			save();
+			doDeleteSelectedRow();
 
 		// Move cursor up
 		case K.UP:
@@ -322,42 +454,15 @@ class Main extends Model {
 
 		// Undo
 		case 'Z'.code if( ctrlDown && pages.curPage < 0 ):
-			if( history.length > 0 ) {
-				redo.push(curSavedData);
-				curSavedData = history.pop();
-				quickLoad(curSavedData);
-				initContent();
-				save(false);
-			}
+			doUndo();
 		
 		// Redo
 		case 'Y'.code if( ctrlDown && pages.curPage < 0 ):
-			if( redo.length > 0 ) {
-				history.push(curSavedData);
-				curSavedData = redo.pop();
-				quickLoad(curSavedData);
-				initContent();
-				save(false);
-			}
+			doRedo();
 		
 		// Copy
 		case 'C'.code if( ctrlDown ):
-			if( cursor.s != null ) {
-				var s = getSelection();
-				var data = [];
-				for( y in s.y1...s.y2+1 ) {
-					var obj = cursor.s.lines[y];
-					var out = {};
-					for( x in s.x1...s.x2+1 ) {
-						var c = cursor.s.columns[x];
-						var v = Reflect.field(obj, c.name);
-						if( v != null )
-							Reflect.setField(out, c.name, v);
-					}
-					data.push(out);
-				}
-				setClipBoard([for( x in s.x1...s.x2+1 ) cursor.s.columns[x]], data);
-			}
+			doCopy();
 		
 		// Cut
 		case 'X'.code if( ctrlDown ):
@@ -366,41 +471,7 @@ class Main extends Model {
 		
 		// Paste
 		case 'V'.code if( ctrlDown ):
-			if( cursor.s == null || clipboard == null || js.node.webkit.Clipboard.getInstance().get("text")  != clipboard.text )
-				return;
-			var sheet = cursor.s;
-			var posX = cursor.x < 0 ? 0 : cursor.x;
-			var posY = cursor.y < 0 ? 0 : cursor.y;
-			for( obj1 in clipboard.data ) {
-				if( posY == sheet.lines.length )
-					sheet.newLine();
-				var obj2 = sheet.lines[posY];
-				for( cid in 0...clipboard.schema.length ) {
-					var c1 = clipboard.schema[cid];
-					var c2 = sheet.columns[cid + posX];
-					if( c2 == null ) continue;
-					var f = base.getConvFunction(c1.type, c2.type);
-					var v : Dynamic = Reflect.field(obj1, c1.name);
-					if( f == null )
-						v = base.getDefault(c2);
-					else {
-						// make a deep copy to erase references
-						if( v != null ) v = haxe.Json.parse(haxe.Json.stringify(v));
-						if( f.f != null )
-							v = f.f(v);
-					}
-					if( v == null && !c2.opt )
-						v = base.getDefault(c2);
-					if( v == null )
-						Reflect.deleteField(obj2, c2.name);
-					else
-						Reflect.setField(obj2, c2.name, v);
-				}
-				posY++;
-			}
-			sheet.sync();
-			refresh();
-			save();
+			doPaste();
 		
 		// Control-tab: next table
 		// Tab: next column
@@ -434,25 +505,12 @@ class Main extends Model {
 
 		// F4: Go to referenced sheet
 		case K.F4:
-			if( cursor.s != null && cursor.x >= 0 ) {
-				var c = cursor.s.columns[cursor.x];
-				var id = Reflect.field(cursor.s.lines[cursor.y], c.name);
-				switch( c.type ) {
-				case TRef(s):
-					var sd = base.getSheet(s);
-					if( sd != null ) {
-						var k = sd.index.get(id);
-						if( k != null ) {
-							var index = Lambda.indexOf(sd.lines, k.obj);
-							if( index >= 0 ) {
-								sheetCursors.set(s, { s : sd, x : 0, y : index } );
-								selectSheet(sd);
-							}
-						}
-					}
-				default:
-				}
-			}
+			openTableReferencedBySelectedCell();
+
+		/*
+		case K.F5:
+			// TODO: reload cdb from disk
+		*/
 
 		// Ctrl-F: find
 		case "F".code if( ctrlDown && inCDB ):
@@ -470,7 +528,7 @@ class Main extends Model {
 		if( level != null && !isInput() ) level.onKeyUp(e);
 	}
 
-	function getLine( sheet : Sheet, index : Int ) {
+	public function getLine( sheet : Sheet, index : Int ) {
 		return J("table[sheet='"+sheet.getPath()+"'] > tbody > tr").not(".head,.separator,.list").eq(index);
 	}
 
@@ -544,23 +602,15 @@ class Main extends Model {
 		res.insertAfter(line);
 	}
 
-
-	function moveLine( sheet : Sheet, index : Int, delta : Int ) {
-		// remove opened list
-		getLine(sheet, index).next("tr.list").change();
-		var index = sheet.moveLine(index, delta);
-		if( index != null ) {
-			setCursor(sheet, -1, index, false);
-			refresh();
-			save();
-		}
-	}
-
+	#if false
 	function changed( sheet : Sheet, c : Column, index : Int, old : Dynamic ) {
 		switch( c.type ) {
 		case TImage:
+			var op = prepSnapshot();
 			saveImages();
+			commitSnapshot(op);
 		case TTilePos:
+			var op = prepSnapshot();
 			// if we change a file that has moved, change it for all instances having the same file
 			var obj = sheet.lines[index];
 			var oldV : cdb.Types.TilePos = old;
@@ -577,11 +627,177 @@ class Main extends Model {
 				if( change ) refresh();
 			}
 			sheet.updateValue(c, index, old);
+			commitSnapshot(op);
 		default:
 			sheet.updateValue(c, index, old);
 		}
+		/*
 		save();
+		trace("Chg Row " + sheet.name + " ; " + index);
+
+		if (c.type != TId) {
+			trace("Conservative save");
+//			saveConservative(sheet.name, index, c);
+save();
+		} else {
+			trace("Full save");
+			save();
+		}
+		*/
 	}
+	#end
+
+
+
+
+	function changed(sheet: Sheet, c: Column, index: Int, old: Dynamic) {
+		switch( c.type ) {
+		// ========FROM MAIN=========
+		case TImage:
+			var op = prepSnapshot();
+			saveImages();
+			commitSnapshot(op);
+		
+		// =======FROM MAIN=======
+		/*
+		case TTilePos:
+			
+			
+			// if we change a file that has moved, change it for all instances having the same file
+			var obj = sheet.lines[index];
+			var oldV : cdb.Types.TilePos = old;
+			var newV : cdb.Types.TilePos = Reflect.field(obj, c.name);
+			if( newV != null && 
+				oldV != null && 
+				oldV.file != newV.file && 
+				!sys.FileSystem.exists(getAbsPath(oldV.file)) &&
+				 sys.FileSystem.exists(getAbsPath(newV.file)) )
+			{
+				var op = prepSnapshot();
+				var change = false;
+				for( i in 0...sheet.lines.length ) {
+					var t : Dynamic = Reflect.field(sheet.lines[i], c.name);
+					if( t != null && t.file == oldV.file ) {
+						t.file = newV.file;
+						change = true;
+					}
+				}
+				if( change ) refresh();
+				commitSnapshot(op);
+			}
+//			sheet.updateValue(c, index, old);
+		*/
+
+		// ========= FROM SHEET ==========
+		case TId:
+			sheet.sync();
+
+		case TInt if( sheet.isLevel() && (c.name == "width" || c.name == "height") ):
+			var op = prepSnapshot();
+
+			var obj = sheet.sheet.lines[index];
+			var newW : Int = Reflect.field(obj, "width");
+			var newH : Int = Reflect.field(obj, "height");
+			var oldW = newW;
+			var oldH = newH;
+			if( c.name == "width" )
+				oldW = old;
+			else
+				oldH = old;
+
+			function remapTileLayer( v : cdb.Types.TileLayer ) {
+
+				if( v == null ) return null;
+
+				var odat = v.data.decode();
+				var ndat = [];
+
+				// object layer
+				if( odat[0] == 0xFFFF )
+					ndat = odat;
+				else {
+					var pos = 0;
+					for( y in 0...newH ) {
+						if( y >= oldH ) {
+							for( x in 0...newW )
+								ndat.push(0);
+						} else if( newW <= oldW ) {
+							for( x in 0...newW )
+								ndat.push(odat[pos++]);
+							pos += oldW - newW;
+						} else {
+							for( x in 0...oldW )
+								ndat.push(odat[pos++]);
+							for( x in oldW...newW )
+								ndat.push(0);
+						}
+					}
+				}
+				return { file : v.file, size : v.size, stride : v.stride, data : cdb.Types.TileLayerData.encode(ndat, base.compress) };
+			}
+
+			for( c in sheet.columns ) {
+				var v : Dynamic = Reflect.field(obj, c.name);
+				if( v == null ) continue;
+				switch( c.type ) {
+				case TLayer(_):
+					var v : cdb.Types.Layer<Int> = v;
+					var odat = v.decode([for( i in 0...256 ) i]);
+					var ndat = [];
+					for( y in 0...newH )
+						for( x in 0...newW ) {
+							var k = y < oldH && x < oldW ? odat[x + y * oldW] : 0;
+							ndat.push(k);
+						}
+					v = cdb.Types.Layer.encode(ndat, base.compress);
+					Reflect.setField(obj, c.name, v);
+
+				case TList:
+					var s = sheet.getSub(c);
+					if( s.hasColumn("x", [TInt,TFloat]) && s.hasColumn("y", [TInt,TFloat]) ) {
+						var elts : Array<{ x : Float, y : Float }> = Reflect.field(obj, c.name);
+						for( e in elts.copy() )
+							if( e.x >= newW || e.y >= newH )
+								elts.remove(e);
+					} else if( s.hasColumn("data", [TTileLayer]) ) {
+						var a : Array<{ data : cdb.Types.TileLayer }> = v;
+						for( o in a )
+							o.data = remapTileLayer(o.data);
+					}
+
+				case TTileLayer:
+					Reflect.setField(obj, c.name, remapTileLayer(v));
+
+				default:
+				}
+			}
+
+		default:
+			if( sheet.props.displayColumn == c.name ) {
+				var obj = sheet.lines[index];
+				for( cid in sheet.columns )
+					if( cid.type == TId ) {
+						var id = Reflect.field(obj, cid.name);
+						if( id != null ) {
+							var disp = Reflect.field(obj, c.name);
+							if( disp == null ) disp = "#" + id;
+							sheet.index.get(id).disp = disp;
+						}
+					}
+			}
+
+			if( sheet.props.displayIcon == c.name ) {
+				var obj = sheet.lines[index];
+				for( cid in sheet.columns )
+					if( cid.type == TId ) {
+						var id = Reflect.field(obj, cid.name);
+						if( id != null && id != "" )
+							sheet.index.get(id).ico = Reflect.field(obj, c.name);
+					}
+			}
+		}
+	}
+
 
 	function setErrorMessage( ?msg ) {
 		if( msg == null )
@@ -625,7 +841,7 @@ class Main extends Model {
 		case TId:
 			v == "" ? '<span class="error">#MISSING</span>' : (base.getSheet(sheet.name).index.get(v).obj == obj ? v : '<span class="error">#DUP($v)</span>');
 		case TString, TLayer(_):
-			v == "" ? "&nbsp;" : StringTools.replace(StringTools.htmlEscape(v), "\n","<br/>");
+			v == "–" ? "&nbsp;" : StringTools.replace(StringTools.htmlEscape(v), "\n","<br/>");
 		case TRef(sname):
 			if( v == "" )
 				'<span class="error">#MISSING</span>';
@@ -650,6 +866,7 @@ class Main extends Model {
 			}
 		case TList:
 			var a : Array<Dynamic> = v;
+			/*
 			var ps = sheet.getSub(c);
 			var out : Array<String> = [];
 			var size = 0;
@@ -679,6 +896,8 @@ class Main extends Model {
 			if( out.length == 0 )
 				return "";
 			return out.join(", ");
+			*/
+			return '<span class="array-shortened">List (</span>${a.length}<span class="array-shortened">)</span>';
 		case TProperties:
 			var ps = sheet.getSub(c);
 			var out = [];
@@ -737,7 +956,7 @@ class Main extends Model {
 				'#DATA';
 		case TDynamic:
 			var str = Std.string(v).split("\n").join(" ").split("\t").join("");
-			if( str.length > 50 ) str = str.substr(0, 47) + "...";
+			if( str.length > 33 ) str = str.substr(0, 33) + "...";
 			str;
 		}
 	}
@@ -758,17 +977,18 @@ class Main extends Model {
 			newLine(sheet, index);
 		};
 		nup.click = function() {
-			moveLine(sheet, index, -1);
+			sheet.moveLine(opStack, index, -1);
 		};
 		ndown.click = function() {
-			moveLine(sheet, index, 1);
+			sheet.moveLine(opStack, index, 1);
 		};
 		ndel.click = function() {
+			var op = prepSnapshot();
 			sheet.deleteLine(index);
-			refresh();
-			save();
+			commitSnapshot(op);
 		};
 		nsep.click = function() {
+			var op = prepSnapshot();
 			if( sepIndex >= 0 ) {
 				sheet.separators.splice(sepIndex, 1);
 				if( sheet.props.separatorTitles != null ) sheet.props.separatorTitles.splice(sepIndex, 1);
@@ -783,8 +1003,8 @@ class Main extends Model {
 				if( sheet.props.separatorTitles != null && sheet.props.separatorTitles.length > sepIndex )
 					sheet.props.separatorTitles.insert(sepIndex, null);
 			}
-			refresh();
-			save();
+			sheet.props.separatorTitles[sepIndex] = "UNTITLED";
+			commitSnapshot(op);
 		};
 		nref.click = function() {
 			showReferences(sheet, index);
@@ -808,76 +1028,7 @@ class Main extends Model {
 
 		switch( c.type ) {
 		case TId, TString, TEnum(_), TFlags(_):
-			var conv = new MenuItem( { label : "Convert" } );
-			var cm = new Menu();
-			for( k in [
-				{ n : "lowercase", f : function(s:String) return s.toLowerCase() },
-				{ n : "UPPERCASE", f : function(s:String) return s.toUpperCase() },
-				{ n : "UpperIdent", f : function(s:String) return s.substr(0,1).toUpperCase() + s.substr(1) },
-				{ n : "lowerIdent", f : function(s:String) return s.substr(0, 1).toLowerCase() + s.substr(1) },
-			] ) {
-				var m = new MenuItem( { label : k.n } );
-				m.click = function() {
-
-					switch( c.type ) {
-					case TEnum(values), TFlags(values):
-						for( i in 0...values.length )
-							values[i] = k.f(values[i]);
-					default:
-						var refMap = new Map();
-						for( obj in sheet.getLines() ) {
-							var t = Reflect.field(obj, c.name);
-							if( t != null && t != "" ) {
-								var t2 = k.f(t);
-								if( t2 == null && !c.opt ) t2 = "";
-								if( t2 == null )
-									Reflect.deleteField(obj, c.name);
-								else {
-									Reflect.setField(obj, c.name, t2);
-									if( t2 != "" )
-										refMap.set(t, t2);
-								}
-							}
-						}
-						if( c.type == TId )
-							base.updateRefs(sheet, refMap);
-						sheet.sync(); // might have changed ID or DISP
-					}
-
-
-					refresh();
-					save();
-				};
-				cm.append(m);
-			}
-			conv.submenu = cm;
-			n.append(conv);
 		case TInt, TFloat:
-			var conv = new MenuItem( { label : "Convert" } );
-			var cm = new Menu();
-			for( k in [
-				{ n : "* 10", f : function(s:Float) return s * 10 },
-				{ n : "/ 10", f : function(s:Float) return s / 10 },
-				{ n : "+ 1", f : function(s:Float) return s + 1 },
-				{ n : "- 1", f : function(s:Float) return s - 1 },
-			] ) {
-				var m = new MenuItem( { label : k.n } );
-				m.click = function() {
-					for( obj in sheet.getLines() ) {
-						var t = Reflect.field(obj, c.name);
-						if( t != null ) {
-							var t2 = k.f(t);
-							if( c.type == TInt ) t2 = Std.int(t2);
-							Reflect.setField(obj, c.name, t2);
-						}
-					}
-					refresh();
-					save();
-				};
-				cm.append(m);
-			}
-			conv.submenu = cm;
-			n.append(conv);
 		default:
 		}
 
@@ -900,19 +1051,19 @@ class Main extends Model {
 		nleft.click = function() {
 			var index = Lambda.indexOf(sheet.columns, c);
 			if( index > 0 ) {
+				var op = prepSnapshot();
 				sheet.columns.remove(c);
 				sheet.columns.insert(index - 1, c);
-				refresh();
-				save();
+				commitSnapshot(op);
 			}
 		};
 		nright.click = function() {
 			var index = Lambda.indexOf(sheet.columns, c);
 			if( index < sheet.columns.length - 1 ) {
+				var op = prepSnapshot();
 				sheet.columns.remove(c);
 				sheet.columns.insert(index + 1, c);
-				refresh();
-				save();
+				commitSnapshot(op);
 			}
 		}
 		ndel.click = function() {
@@ -920,24 +1071,24 @@ class Main extends Model {
 				deleteColumn(sheet, c.name);
 		};
 		ndisp.click = function() {
+			var op = prepSnapshot();
 			if( sheet.props.displayColumn == c.name ) {
 				sheet.props.displayColumn = null;
 			} else {
 				sheet.props.displayColumn = c.name;
 			}
 			sheet.sync();
-			refresh();
-			save();
+			commitSnapshot(op);
 		};
 		nicon.click = function() {
+			var op = prepSnapshot();
 			if( sheet.props.displayIcon == c.name ) {
 				sheet.props.displayIcon = null;
 			} else {
 				sheet.props.displayIcon = c.name;
 			}
 			sheet.sync();
-			refresh();
-			save();
+			commitSnapshot(op);
 		};
 		nins.click = function() {
 			newColumn(sheet.name, Lambda.indexOf(sheet.columns,c) + 1);
@@ -958,6 +1109,7 @@ class Main extends Model {
 		for( m in [nins, nleft, nright, nren, ndel, nindex, ngroup] )
 			n.append(m);
 		nleft.click = function() {
+			var op = prepSnapshot("move sheet left");
 			var prev = -1;
 			for( i in 0...base.sheets.length ) {
 				var s2 = base.sheets[i];
@@ -970,9 +1122,11 @@ class Main extends Model {
 			base.updateSheets();
 			prefs.curSheet = prev;
 			initContent();
-			save();
+			commitSnapshot(op);
 		};
 		nright.click = function() {
+			var op = prepSnapshot("move sheet right");
+
 			var sheets = [for( s in base.sheets ) if( !s.props.hide ) s];
 			var index = sheets.indexOf(s);
 			var next = sheets[index+1];
@@ -997,18 +1151,20 @@ class Main extends Model {
 			base.updateSheets();
 			prefs.curSheet = base.sheets.indexOf(s);
 			initContent();
-			save();
+			commitSnapshot(op);
 		}
 		ndel.click = function() {
+			var op = prepSnapshot("delete sheet");
 			base.deleteSheet(s);
 			initContent();
-			save();
+			commitSnapshot(op);
 		};
 		nins.click = function() {
 			newSheet();
 		};
 		nindex.checked = s.props.hasIndex;
 		nindex.click = function() {
+			var op = prepSnapshot();
 			if( s.props.hasIndex ) {
 				for( o in s.getLines() )
 					Reflect.deleteField(o, "index");
@@ -1021,10 +1177,11 @@ class Main extends Model {
 					}
 				s.props.hasIndex = true;
 			}
-			save();
+			commitSnapshot(op);
 		};
 		ngroup.checked = s.props.hasGroup;
 		ngroup.click = function() {
+			var op = prepSnapshot();
 			if( s.props.hasGroup ) {
 				for( o in s.getLines() )
 					Reflect.deleteField(o, "group");
@@ -1037,7 +1194,7 @@ class Main extends Model {
 					}
 				s.props.hasGroup = true;
 			}
-			save();
+			commitSnapshot(op);
 		};
 		nren.click = function() {
 			li.dblclick();
@@ -1047,71 +1204,94 @@ class Main extends Model {
 			nlevel.checked = s.isLevel();
 			n.append(nlevel);
 			nlevel.click = function() {
+				var op = prepSnapshot();
 				if( s.isLevel() )
 					Reflect.deleteField(s.props, "level");
 				else
 					s.props.level = {
 						tileSets : {},
 					}
-				save();
-				refresh();
+				commitSnapshot(op);
 			};
 		}
 
 		n.popup(mousePos.x, mousePos.y);
 	}
 
-	public function editCell( c : Column, v : JQuery, sheet : Sheet, index : Int ) {
+	public function editCell( column : Column, v : JQuery, sheet : Sheet, rowIndex : Int ) {
+		var rowModifyOp = new ops.RowModify(this, sheet.getNestedPos(rowIndex));
+		opStack.pushNoApply(rowModifyOp);
+
 		if( macEditMenu != null ) window.menu.append(macEditMenu);
-		var obj = sheet.lines[index];
-		var val : Dynamic = Reflect.field(obj, c.name);
+		var obj = sheet.lines[rowIndex];
+		var val : Dynamic = Reflect.field(obj, column.name);
 		var old = val;
 		inline function getValue() {
-			return valueHtml(c, val, sheet, obj);
+			return valueHtml(column, val, sheet, obj);
+		}
+		inline function commitOpAndSave() {
+			rowModifyOp.commitNewState(this);
 		}
 		inline function changed() {
-			updateClasses(v, c, val);
-			this.changed(sheet, c, index, old);
+			updateClasses(v, column, val);
+			this.changed(sheet, column, rowIndex, old);
+			commitOpAndSave();
 		}
+
 		var html = getValue();
+
 		if( v.hasClass("edit") ) return;
+
 		function editDone() {
 			if( macEditMenu != null ) window.menu.remove(macEditMenu);
 			v.html(html);
 			v.removeClass("edit");
 			setErrorMessage();
+			if (rowModifyOp.isUseless()) {
+				trace("last operation was useless");
+				opStack.removeLastOp(rowModifyOp);
+			}
 		}
-		switch( c.type ) {
+
+		switch( column.type ) {
+
+		// ---- Begin "Edit Text Box Cell" Monstrosity ----
 		case TInt, TFloat, TString, TId, TCustom(_), TDynamic:
 			v.empty();
-			var i = J(c.type==TString?"<textarea>":"<input>");
+
+			var inputBox = J(column.type==TString?"<textarea>":"<input>");
+
 			v.addClass("edit");
-			i.appendTo(v);
-			if( val != null )
-				switch( c.type ) {
+			inputBox.appendTo(v);
+
+			if( val != null ) {
+				switch( column.type ) {
 				case TCustom(t):
-					i.val(base.typeValToString(base.getCustomType(t), val));
+					inputBox.val(base.typeValToString(base.getCustomType(t), val));
 				case TDynamic:
-					i.val(haxe.Json.stringify(val));
+					inputBox.val(haxe.Json.stringify(val));
 				default:
-					i.val(""+val);
+					inputBox.val(""+val);
 				}
-			i.change(function(e) e.stopPropagation());
-			i.keydown(function(e:js.jquery.Event) {
+			}
+
+			inputBox.change(function(e) e.stopPropagation());
+
+			inputBox.keydown(function(e:js.jquery.Event) {
 				switch( e.keyCode ) {
 				case K.ESC:
 					editDone();
 				case K.ENTER:
-					if( !i.is("textarea") || !e.shiftKey && !e.altKey && !e.ctrlKey ) {
-						i.blur();
+					if( !inputBox.is("textarea") || !e.shiftKey && !e.altKey && !e.ctrlKey ) {
+						inputBox.blur();
 						e.preventDefault();
 					}
 				case K.UP, K.DOWN:
-					if( !i.is("textarea") )
-						i.blur();
+					if( !inputBox.is("textarea") )
+						inputBox.blur();
 					return;
 				case K.TAB:
-					i.blur();
+					inputBox.blur();
 					moveCursor(e.shiftKey? -1:1, 0, false, false);
 					haxe.Timer.delay(function() J(".cursor").dblclick(), 1);
 					e.preventDefault();
@@ -1119,103 +1299,117 @@ class Main extends Model {
 				}
 				e.stopPropagation();
 			});
-			i.blur(function(_) {
-				var nv = i.val();
-				var old = val;
-				var prevObj = c.type == TId && old != null ? base.getSheet(sheet.name).index.get(val) : null;
+
+			inputBox.blur(function(_) {
+				var newValue = inputBox.val();
+				var oldValue = val;
+				var prevObj = column.type == TId && oldValue != null ? base.getSheet(sheet.name).index.get(val) : null;
 				var prevTarget = null;
-				if( nv == "" && c.opt ) {
+
+				if( newValue == "" && column.opt ) {
 					if( val != null ) {
 						val = html = null;
-						Reflect.deleteField(obj, c.name);
+						Reflect.deleteField(obj, column.name);
 						changed();
 					}
 				} else {
-					var val2 : Dynamic = switch( c.type ) {
+					var val2 : Dynamic = switch( column.type ) {
 					case TInt:
-						Std.parseInt(nv);
+						Std.parseInt(newValue);
 					case TFloat:
-						var f = Std.parseFloat(nv);
+						var f = Std.parseFloat(newValue);
 						if( Math.isNaN(f) ) null else f;
 					case TId:
-						base.r_ident.match(nv) ? nv : null;
+						base.r_ident.match(newValue) ? newValue : null;
 					case TCustom(t):
-						try base.parseTypeVal(base.getCustomType(t), nv) catch( e : Dynamic ) null;
+						try base.parseTypeVal(base.getCustomType(t), newValue) catch( e : Dynamic ) null;
 					case TDynamic:
-						try base.parseDynamic(nv) catch( e : Dynamic ) null;
+						try base.parseDynamic(newValue) catch( e : Dynamic ) null;
 					default:
-						nv;
+						newValue;
 					}
 					if( val2 != val && val2 != null ) {
 
 						prevTarget = base.getSheet(sheet.name).index.get(val2);
-						if( c.type == TId && val != null && (prevObj == null || prevObj.obj == obj) ) {
+						if( column.type == TId && val != null && (prevObj == null || prevObj.obj == obj) ) {
 							var m = new Map();
 							m.set(val, val2);
 							base.updateRefs(sheet, m);
 						}
 
 						val = val2;
-						Reflect.setField(obj, c.name, val);
+						Reflect.setField(obj, column.name, val);
 						changed();
 						html = getValue();
 					}
 				}
 				editDone();
 				// handle #DUP in case we change the first element (creates a dup or removes one)
-				if( c.type == TId && prevObj != null && old != val && ((prevObj.obj == obj && base.getSheet(sheet.name).index.get(old) != null) || (prevTarget != null && base.getSheet(sheet.name).index.get(val).obj != prevTarget.obj)) ) {
+				if( column.type == TId &&
+					prevObj != null &&
+					oldValue != val &&
+					((prevObj.obj == obj && base.getSheet(sheet.name).index.get(oldValue) != null) ||
+					(prevTarget != null && base.getSheet(sheet.name).index.get(val).obj != prevTarget.obj)) )
+				{
 					refresh();
 					return;
 				}
 			});
-			switch( c.type ) {
+
+			switch( column.type ) {
 			case TCustom(t):
 				var t = base.getCustomType(t);
-				i.keyup(function(_) {
-					var str = i.val();
+				inputBox.keyup(function(_) {
+					var str = inputBox.val();
 					try {
 						if( str != "" )
 							base.parseTypeVal(t, str);
 						setErrorMessage();
-						i.removeClass("error");
+						inputBox.removeClass("error");
 					} catch( msg : String ) {
 						setErrorMessage(msg);
-						i.addClass("error");
+						inputBox.addClass("error");
 					}
 				});
 			default:
 			}
-			i.focus();
-			i.select();
+			inputBox.focus();
+			inputBox.select();
+		// ---- End "Edit Text Box Cell" Monstrosity ----
 
 		case TEnum(values):
 			v.empty();
-			var s = J("<select>");
 			v.addClass("edit");
+
+			var select = J("<select>");
+			v.append(select);
+
 			for( i in 0...values.length )
-				J("<option>").attr("value", "" + i).attr(val == i ? "selected" : "_sel", "selected").text(values[i]).appendTo(s);
-			if( c.opt )
-				J("<option>").attr("value","-1").text("--- None ---").prependTo(s);
-			v.append(s);
-			s.change(function(e) {
-				val = Std.parseInt(s.val());
+				J("<option>").attr("value", "" + i).attr(val == i ? "selected" : "_sel", "selected").text(values[i]).appendTo(select);
+
+			if( column.opt )
+				J("<option>").attr("value","-1").text("--- None ---").prependTo(select);
+
+			select.change(function(e) {
+				val = Std.parseInt(select.val());
 				if( val < 0 ) {
 					val = null;
-					Reflect.deleteField(obj, c.name);
+					Reflect.deleteField(obj, column.name);
 				} else
-					Reflect.setField(obj, c.name, val);
+					Reflect.setField(obj, column.name, val);
 				html = getValue();
 				changed();
 				editDone();
 				e.stopPropagation();
 			});
-			s.keydown(function(e) {
+
+			select.keydown(function(e) {
 				switch( e.keyCode ) {
 				case K.LEFT, K.RIGHT:
-					s.blur();
+					select.blur();
 					return;
 				case K.TAB:
-					s.blur();
+					select.blur();
 					moveCursor(e.shiftKey? -1:1, 0, false, false);
 					haxe.Timer.delay(function() J(".cursor").dblclick(), 1);
 					e.preventDefault();
@@ -1223,25 +1417,29 @@ class Main extends Model {
 				}
 				e.stopPropagation();
 			});
-			s.blur(function(_) {
+
+			select.blur(function(_) {
 				editDone();
 			});
-			s.focus();
+
+			select.focus();
+			
 			var event : Dynamic = cast js.Browser.document.createEvent('MouseEvents');
 			event.initMouseEvent('mousedown', true, true, js.Browser.window);
-			s[0].dispatchEvent(event);
+			select[0].dispatchEvent(event);
+
 		case TRef(sname):
 			var sdat = base.getSheet(sname);
 			if( sdat == null ) return;
 			v.empty();
 			v.addClass("edit");
 
-			var s = J("<select>");
+			var select = J("<select>");
 			var elts = [for( d in sdat.all ){ id : d.id, ico : d.ico, text : d.disp }];
-			if( c.opt || val == null || val == "" )
+			if( column.opt || val == null || val == "" )
 				elts.unshift( { id : "~", ico : null, text : "--- None ---" } );
-			v.append(s);
-			s.change(function(e) e.stopPropagation());
+			v.append(select);
+			select.change(function(e) e.stopPropagation());
 
 			var props : Dynamic = { data : elts };
 			if( sdat.props.displayIcon != null ) {
@@ -1251,33 +1449,34 @@ class Main extends Model {
 				}
 				props.templateResult = props.templateSelection = buildElement;
 			}
-			(untyped s.select2)(props);
-			(untyped s.select2)("val", val == null ? "" : val);
-			(untyped s.select2)("open");
+			(untyped select.select2)(props);
+			(untyped select.select2)("val", val == null ? "" : val);
+			(untyped select.select2)("open");
 
-			s.change(function(e) {
-				val = s.val();
+			select.change(function(e) {
+				val = select.val();
 				if( val == "~" ) {
 					val = null;
-					Reflect.deleteField(obj, c.name);
+					Reflect.deleteField(obj, column.name);
 				} else
-					Reflect.setField(obj, c.name, val);
+					Reflect.setField(obj, column.name, val);
 				html = getValue();
 				changed();
 				editDone();
 			});
-			s.on("select2:close", function(_) editDone());
+			select.on("select2:close", function(_) editDone());
 
 		case TBool:
-			if( c.opt && val == false ) {
+			if( column.opt && val == false ) {
 				val = null;
-				Reflect.deleteField(obj, c.name);
+				Reflect.deleteField(obj, column.name);
 			} else {
 				val = !val;
-				Reflect.setField(obj, c.name, val);
+				Reflect.setField(obj, column.name, val);
 			}
 			v.html(getValue());
 			changed();
+
 		case TImage:
 			inline function loadImage(file : String) {
 				var ext = file.split(".").pop().toLowerCase();
@@ -1294,76 +1493,96 @@ class Main extends Model {
 					Reflect.setField(imageBank, md5, data);
 				}
 				val = md5;
-				Reflect.setField(obj, c.name, val);
+				Reflect.setField(obj, column.name, val);
 				v.html(getValue());
 				changed();
 			}
+
 			if ( untyped v.dropFile != null ) {
 				loadImage(untyped v.dropFile);
 			} else {
-				var i = J("<input>").attr("type", "file").css("display","none").change(function(e) {
+				var input = J("<input>").attr("type", "file").css("display","none").change(function(e) {
 					var j = JTHIS;
 					loadImage(j.val());
 					j.remove();
 				});
-				i.appendTo(J("body"));
-				i.click();
+				input.appendTo(J("body"));
+				input.click();
 			}
+
 		case TFlags(values):
 			var div = J("<div>").addClass("flagValues");
-			div.click(function(e) e.stopPropagation()).dblclick(function(e) e.stopPropagation());
+			div.click(function(e) e.stopPropagation());
+			div.dblclick(function(e) e.stopPropagation());
+
 			for( i in 0...values.length ) {
-				var f = J("<input>").attr("type", "checkbox").prop("checked", val & (1 << i) != 0).change(function(e) {
+				var input = J("<input>");
+				input.attr("type", "checkbox");
+				input.prop("checked", val & (1 << i) != 0);
+				input.change(function(e) {
 					val &= ~(1 << i);
 					if( JTHIS.prop("checked") ) val |= 1 << i;
 					e.stopPropagation();
 				});
-				J("<label>").text(values[i]).appendTo(div).append(f);
+				J("<label>").text(values[i]).appendTo(div).append(input);
 			}
+
 			v.empty();
 			v.append(div);
+
 			cursor.onchange = function() {
-				if( c.opt && val == 0 ) {
+				if( column.opt && val == 0 ) {
 					val = null;
-					Reflect.deleteField(obj, c.name);
+					Reflect.deleteField(obj, column.name);
 				} else
-					Reflect.setField(obj, c.name, val);
+					Reflect.setField(obj, column.name, val);
 				html = getValue();
 				editDone();
-				save();
+				commitOpAndSave();
 			};
+
 		case TTileLayer:
 			// nothing
+
 		case TColor:
 			var id = Std.random(0x1);
 			v.html('<div class="modal" onclick="$(\'#_c${id}\').spectrum(\'toggle\')"></div><input type="text" id="_c${id}"/>');
 			var spect : Dynamic = J('#_c$id');
-			spect.spectrum( { color : "#" + StringTools.hex(val, 6), showInput: true, showButtons: false, change : function() spect.spectrum('hide'), hide : function(vcol:Dynamic) {
-				var color = Std.parseInt("0x" + vcol.toHex());
-				val = color;
-				Reflect.setField(obj, c.name, color);
-				v.html(getValue());
-				save();
-			}}).spectrum("show");
+			spect.spectrum({
+				color : "#" + StringTools.hex(val, 6),
+				showInput: true,
+				showButtons: false,
+				change : function() spect.spectrum('hide'),
+				hide : function(vcol:Dynamic) {
+					var color = Std.parseInt("0x" + vcol.toHex());
+					val = color;
+					Reflect.setField(obj, column.name, color);
+					v.html(getValue());
+					commitOpAndSave();
+				}
+			});
+			spect.spectrum("show");
+
 		case TFile:
 			v.empty();
 			v.off();
 			v.html(getValue());
 			v.find("input").addClass("deletable").change(function(e) {
-				if( Reflect.field(obj,c.name) != null ) {
-					Reflect.deleteField(obj, c.name);
+				if( Reflect.field(obj,column.name) != null ) {
+					Reflect.deleteField(obj, column.name);
 					v.html(getValue());
-					save();
+					commitOpAndSave();
 				}
 			});
 			v.dblclick(function(_) {
 				chooseFile(function(path) {
 					val = path;
-					Reflect.setField(obj, c.name, path);
+					Reflect.setField(obj, column.name, path);
 					v.html(getValue());
-					save();
+					commitOpAndSave();
 				});
 			});
+
 		case TList, TLayer(_), TTilePos, TProperties:
 			throw "assert2";
 		}
@@ -1410,7 +1629,8 @@ class Main extends Model {
 		if( e != null ) untyped e.scrollIntoViewIfNeeded();
 	}
 
-	function refresh() {
+	public function refresh() {
+		trace("REFRESH");
 		var t = J("<table>");
 		checkCursor = true;
 		fillTable(t, viewSheet);
@@ -1526,9 +1746,9 @@ class Main extends Model {
 			}
 			for( c in available )
 				if( c.name == v ) {
+					var op = prepSnapshot();
 					Reflect.setField(props, c.name, base.getDefault(c, true));
-					save();
-					refresh();
+					commitSnapshot(op);
 					return;
 				}
 		});
@@ -1549,6 +1769,7 @@ class Main extends Model {
 	}
 
 	function fillTable( content : JQuery, sheet : Sheet ) {
+		//trace("FILLTABLE " + sheet.name);
 		if( sheet.columns.length == 0 ) {
 			content.html('<a href="javascript:_.newColumn(\'${sheet.name}\')">Add a column</a>');
 			return;
@@ -1657,9 +1878,9 @@ class Main extends Model {
 				case TImage:
 					v.find("img").addClass("deletable").change(function(e) {
 						if( Reflect.field(obj,c.name) != null ) {
+							var op = prepSnapshot();
 							Reflect.deleteField(obj, c.name);
-							refresh();
-							save();
+							commitSnapshot(op);
 						}
 					}).click(function(e) {
 						JTHIS.addClass("selected");
@@ -1710,9 +1931,10 @@ class Main extends Model {
 						openedList.set(key,true);
 						next.change(function(e) {
 							if( c.opt && val.length == 0 ) {
+								var op = prepSnapshot();
 								val = null;
 								Reflect.deleteField(obj, c.name);
-								save();
+								commitSnapshot(op);
 							}
 							html = valueHtml(c, val, sheet, obj);
 							v.html(html);
@@ -1773,9 +1995,10 @@ class Main extends Model {
 						openedList.set(key,true);
 						next.change(function(e) {
 							if( c.opt && Reflect.fields(val).length == 0 ) {
+								var op = prepSnapshot();
 								val = null;
 								Reflect.deleteField(obj, c.name);
-								save();
+								commitSnapshot(op);
 							}
 							html = valueHtml(c, val, sheet, obj);
 							v.html(html);
@@ -1803,34 +2026,36 @@ class Main extends Model {
 				case TFile:
 					v.find("input").addClass("deletable").change(function(e) {
 						if( Reflect.field(obj,c.name) != null ) {
+							var op = prepSnapshot("remove file");
 							Reflect.deleteField(obj, c.name);
-							refresh();
-							save();
+							commitSnapshot(op);
 						}
 					});
 					v.dblclick(function(_) {
 						chooseFile(function(path) {
+							var op = prepSnapshot("set file");
 							set(path);
-							save();
+							commitSnapshot(op);
 						});
 					});
 					v[0].addEventListener("drop", function( e : js.html.DragEvent ) {
 						if ( e.dataTransfer.files.length > 0 ) {
 							e.preventDefault();
 							e.stopPropagation();
+							var op = prepSnapshot("set file");
 							var path = untyped e.dataTransfer.files[0].path;
 							var relPath = makeRelativePath(path);
 							set(relPath);
-							save();
+							commitSnapshot(op);
 						}
 					});
 				case TTilePos:
 
 					v.find("div").addClass("deletable").change(function(e) {
 						if( Reflect.field(obj,c.name) != null ) {
+							var op = prepSnapshot("remove tile");
 							Reflect.deleteField(obj, c.name);
-							refresh();
-							save();
+							commitSnapshot(op);
 						}
 					});
 
@@ -1891,9 +2116,10 @@ class Main extends Model {
 								marginTop : (size * posY - 1) + "px",
 							});
 						}).click(function(_) {
+							var op = prepSnapshot();
 							setVal();
 							dialog.remove();
-							save();
+							commitSnapshot(op);
 						});
 						dialog.find("[name=size]").val("" + size).change(function(_) {
 							size = Std.parseInt(JTHIS.val());
@@ -1911,10 +2137,11 @@ class Main extends Model {
 						dialog.find("[name=cancel]").click(function(_) dialog.remove());
 						dialog.find("[name=file]").click(function(_) {
 							chooseFile(function(f) {
+								var op = prepSnapshot();
 								file = f;
 								dialog.remove();
 								setVal();
-								save();
+								commitSnapshot(op);
 								v.dblclick();
 							});
 						});
@@ -1983,6 +2210,7 @@ class Main extends Model {
 				sep.dblclick(function(e) {
 					content.empty();
 					J("<input>").appendTo(content).focus().val(title == null ? "" : title).blur(function(_) {
+						var op = prepSnapshot();
 						title = JTHIS.val();
 						JTHIS.remove();
 						content.text(title);
@@ -1995,7 +2223,7 @@ class Main extends Model {
 							titles.pop();
 						if( titles.length == 0 ) titles = null;
 						sheet.props.separatorTitles = titles;
-						save();
+						commitSnapshot(op);
 					}).keypress(function(e) {
 						e.stopPropagation();
 					}).keydown(function(e) {
@@ -2017,7 +2245,8 @@ class Main extends Model {
 		js.node.webkit.Shell.openItem(file);
 	}
 
-	function setCursor( ?s, ?x=0, ?y=0, ?sel, update = true ) {
+	public function setCursor( ?s, ?x=0, ?y=0, ?sel, update = true ) {
+		
 		cursor.s = s;
 		cursor.x = x;
 		cursor.y = y;
@@ -2027,10 +2256,12 @@ class Main extends Model {
 			cursor.onchange = null;
 			ch();
 		}
+		trace("setCursor " + s.name + " " + x + " " + y + " " + sel);
 		if( update ) updateCursor();
 	}
 
 	function selectSheet( s : Sheet, manual = true ) {
+		trace("selectSheet " + s.name);
 		viewSheet = s;
 		pages.curPage = -1;
 		cursor = sheetCursors.get(s.name);
@@ -2077,6 +2308,7 @@ class Main extends Model {
 	}
 
 	function deleteColumn( sheet : Sheet, ?cname) {
+		var op = prepSnapshot();
 		if( cname == null ) {
 			sheet = getSheet(colProps.sheet);
 			cname = colProps.ref.name;
@@ -2084,11 +2316,12 @@ class Main extends Model {
 		if( !sheet.deleteColumn(cname) )
 			return;
 		J("#newcol").hide();
-		refresh();
-		save();
+		commitSnapshot(op);
 	}
 
 	function editTypes() {
+		var op = prepSnapshot();
+
 		if( typesStr == null ) {
 			var tl = [];
 			for( t in base.getCustomTypes() )
@@ -2152,7 +2385,8 @@ class Main extends Model {
 			typesStr = null;
 			setErrorMessage();
 			// prevent partial changes being made
-			quickLoad(curSavedData);
+			rollbackSnapshot(op);
+
 			initContent();
 		});
 		apply.click(function(_) {
@@ -2184,10 +2418,13 @@ class Main extends Model {
 						return;
 					}
 			}
+
 			// full rebuild
 			initContent();
+
+			commitSnapshot(op);
+
 			typesStr = null;
-			save();
 		});
 		typesStr = null;
 		text.change();
@@ -2246,9 +2483,9 @@ class Main extends Model {
 	}
 
 	function newLine( sheet : Sheet, ?index : Int ) {
+		var op = prepSnapshot();
 		sheet.newLine(index);
-		refresh();
-		save();
+		commitSnapshot(op);
 	}
 
 	function insertLine() {
@@ -2256,6 +2493,7 @@ class Main extends Model {
 	}
 
 	function createSheet( name : String, level : Bool ) {
+		var op = prepSnapshot();
 		name = StringTools.trim(name);
 		if( !base.r_ident.match(name) ) {
 			error("Invalid sheet name");
@@ -2271,7 +2509,7 @@ class Main extends Model {
 		s.sync();
 		if( level ) initLevel(s);
 		initContent();
-		save();
+		commitSnapshot(op);
 	}
 
 	function initLevel( s : Sheet ) {
@@ -2303,6 +2541,7 @@ class Main extends Model {
 	}
 
 	function createColumn() {
+		var op = prepSnapshot();
 
 		var v : Dynamic<String> = { };
 		var cols = J("#col_form input, #col_form select").not("[type=submit]");
@@ -2385,8 +2624,7 @@ class Main extends Model {
 			var err = base.updateColumn(sheet, refColumn, c);
 			if( err != null ) {
 				// might have partial change
-				refresh();
-				save();
+				commitSnapshot(op);
 				error(err);
 				return;
 			}
@@ -2407,8 +2645,7 @@ class Main extends Model {
 		J("#newcol").hide();
 		for( c in cols.elements() )
 			c.val("");
-		refresh();
-		save();
+		commitSnapshot(op);
 	}
 
 	public function initContent() {
@@ -2434,6 +2671,9 @@ class Main extends Model {
 						if( f != s ) error("Sheet name already in use");
 						return;
 					}
+
+					var op = prepSnapshot("rename sheet");
+
 					var old = s.name;
 					s.rename(name);
 
@@ -2453,7 +2693,7 @@ class Main extends Model {
 							s.rename(name + "@" + s.name.substr(old.length + 1));
 
 					initContent();
-					save();
+					commitSnapshot(op);
 				}).keydown(function(e) {
 					if( e.keyCode == 13 ) JTHIS.blur() else if( e.keyCode == 27 ) initContent();
 					e.stopPropagation();
@@ -2499,7 +2739,20 @@ class Main extends Model {
 			refresh();
 	}
 
+	function doUndo() {
+		opStack.undo();
+		initContent();
+		refresh();
+	}
+
+	function doRedo() {
+		opStack.redo();
+		initContent();
+		refresh();
+	}
+
 	function initMenu() {
+		window.showDevTools();
 		var modifier = "ctrl";
 		var menu = Menu.createWindowMenu();
 		if(Sys.systemName().indexOf("Mac") != -1) {
@@ -2516,9 +2769,8 @@ class Main extends Model {
 		mcompress = new MenuItem( { label : "Enable Compression", type : MenuItemType.checkbox } );
 		mcompress.click = function() {
 			base.compress = mcompress.checked;
-			save();
+			nuclearSave();
 		};
-		var mabout = new MenuItem( { label : "About" } );
 		var mexit = new MenuItem( { label : "Exit", key : "Q", modifiers : modifier } );
 		var mdebug = new MenuItem( { label : "Dev" } );
 		mnew.click = function() {
@@ -2540,13 +2792,14 @@ class Main extends Model {
 			var i = J("<input>").attr("type", "file").attr("nwsaveas","new.cdb").css("display","none").change(function(e) {
 				var j = JTHIS;
 				prefs.curFile = j.val();
-				save();
+				nuclearSave();
 				j.remove();
 			});
 			i.appendTo(J("body"));
 			i.click();
 		};
 		mclean.click = function() {
+			var op = prepSnapshot();
 			var lcount = @:privateAccess base.cleanLayers();
 			var icount = 0;
 			if( imageBank != null ) {
@@ -2561,13 +2814,10 @@ class Main extends Model {
 				icount + " unused images removed"
 			].join("\n"));
 			refresh();
-			if( lcount > 0 ) save();
+			if( lcount > 0 ) commitSnapshot(op);
 			if( icount > 0 ) saveImages();
 		};
 		mexit.click = function() Sys.exit(0);
-		mabout.click = function() {
-			J("#about").show();
-		};
 
 		var mrecents = new Menu();
 		for( file in prefs.recent ) {
@@ -2581,7 +2831,7 @@ class Main extends Model {
 		}
 		mrecent.submenu = mrecents;
 
-		for( m in [mnew, mopen, mrecent, msave, mclean, mcompress, mexport, mabout, mexit] )
+		for( m in [mnew, mopen, mrecent, msave, mclean, mcompress, mexport, mexit] )
 			mfiles.append(m);
 		mfile.submenu = mfiles;
 
@@ -2610,6 +2860,7 @@ class Main extends Model {
 		}
 		else {
 			menu.append(mfile);
+//			menu.append(mi_edit);
 			menu.append(mdebug);
 		}
 
@@ -2642,26 +2893,12 @@ class Main extends Model {
 		});
 	}
 
-	function getFileTime() : Float {
-		return try sys.FileSystem.stat(prefs.curFile).mtime.getTime()*1. catch( e : Dynamic ) 0.;
-	}
-
-	function checkTime() {
-		if( prefs.curFile == null )
-			return;
-		var fileTime = getFileTime();
-		if( fileTime != lastSave && fileTime != 0 )
-			load();
-	}
-
 	override function load(noError = false) {
-
 		if( sys.FileSystem.exists(prefs.curFile+".mine") && !Resolver.resolveConflict(prefs.curFile) ) {
 			error("CDB file has unresolved conflict, merge by hand before reloading.");
 			return;
 		}
 
-		lastSave = getFileTime();
 		super.load(noError);
 
 		initContent();
@@ -2674,7 +2911,11 @@ class Main extends Model {
 
 	override function save( history = true ) {
 		super.save(history);
-		lastSave = getFileTime();
+		trace("Finish Saving");
+	}
+
+	public function nuclearSave(history: Bool = true) {
+		save(history);
 	}
 
 	public static var inst : Main;

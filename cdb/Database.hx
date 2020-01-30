@@ -14,6 +14,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 package cdb;
+import sys.FileSystem;
 import cdb.Data.Column;
 import cdb.Data.ColumnType;
 import cdb.Data.CustomType;
@@ -23,11 +24,13 @@ class Database {
 
 	var smap : Map<String, Sheet>;
 	var tmap : Map<String, CustomType>;
-	var data : cdb.Data;
+	public var data : cdb.Data;
 
 	public var sheets(default, null) : Array<Sheet>;
 	public var compress(get, set) : Bool;
 	public var r_ident : EReg;
+
+	public var isMultifile(get, never) : Bool;
 
 	public function new() {
 		r_ident = ~/^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -39,6 +42,9 @@ class Database {
 		sheets = [];
 		sync();
 	}
+
+
+	function get_isMultifile() return data.format == MultifileLoadSave.MULTIFILE_FORMAT;
 
 	inline function get_compress() return data.compress;
 
@@ -73,8 +79,43 @@ class Database {
 		return tmap.get(name);
 	}
 
-	public function getSheet( name : String ) {
+	public function getSheet( name : String ) : Sheet {
 		return smap.get(name);
+	}
+
+	public function getNestedRow(pos : NestedRowPos) {
+		return _getNestedSheetAndRow(pos)[1];
+	}
+
+	public function getNestedSheetRowArray(pos : NestedRowPos) {
+		return _getNestedSheetAndRow(pos)[0];
+	}
+
+	private function _getNestedSheetAndRow(pos : NestedRowPos) {
+		var row : Dynamic;
+
+		var subtable = getSheet(pos[0].col).lines;
+
+		// top-level sheets store their rows under a "lines" array
+		row = subtable[pos[0].row];
+
+		// sub-sheets are just an array, not sheet objects, so they don't have a "lines" array
+		for (i in 1...pos.length) {
+			subtable = Reflect.field(row, pos[i].col);
+			row = subtable[pos[i].row]; // it's already an array, no need to take .lines
+		}
+		
+		return [subtable, row];
+	}
+
+	public static function nestedSheetToHTMLPath(pos : NestedRowPos) {
+		var path = pos[0].col;
+
+		for (i in 1...pos.length) {
+			path += "@" + pos[i].col + ":" + pos[i - 1].col;
+		}
+
+		return path;
 	}
 
 	public function createSheet( name : String, ?index : Int ) {
@@ -162,6 +203,15 @@ class Database {
 
 	public function loadFrom( rootCDBPath : String ) {
 		data = cdb.Parser.parseFrom(rootCDBPath, true);
+		postLoad();
+	}
+
+	public function loadJson(json: String) {
+		data = cdb.Parser.parseJson(json, true);
+		postLoad();
+	}
+
+	private function postLoad() {
 		if( sheets != null ) {
 			// reset old sheets (should not be used)
 			for( s in sheets ) @:privateAccess {

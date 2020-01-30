@@ -21,7 +21,7 @@ typedef SheetIndex = { id : String, disp : String, ico : cdb.Types.TilePos, obj 
 class Sheet {
 
 	public var base(default,null) : Database;
-	var sheet : cdb.Data.SheetData;
+	public var sheet : cdb.Data.SheetData;
 
 	public var index : Map<String,SheetIndex>;
 	public var all : Array<SheetIndex>;
@@ -53,6 +53,21 @@ class Sheet {
 
 	public inline function getSub( c : Column ) {
 		return base.getSheet(name + "@" + c.name);
+	}
+
+	public function getNestedPos(rowIndex : Int) : NestedRowPos {
+		var pos : NestedRowPos;
+		var colName : String;
+		if (parent == null) {
+			pos = [];
+			colName = name;
+		}
+		else {
+			colName = parent.sheet.columns[parent.column].name;
+			pos = parent.sheet.getNestedPos(parent.line);
+		}
+		pos.push({col: colName, row: rowIndex});
+		return pos;
 	}
 
 	public function getParent() {
@@ -142,6 +157,8 @@ class Sheet {
 		return o;
 	}
 
+	// warning, the path format is kind of misleading
+	// e.g. "loreRoom@examinables:18@events:7" actually means: 18th loreRoom, 7th examinable, events table
 	public function getPath() {
 		return path == null ? sheet.name : path;
 	}
@@ -160,7 +177,7 @@ class Sheet {
 		return false;
 	}
 
-	public function moveLine( index : Int, delta : Int ) : Null<Int> {
+	public function moveLine( opStack : OperationStack, index : Int, delta : Int ) : Null<Int> {
 		if (sheet == null || delta == 0)
 			return null;
 
@@ -175,7 +192,7 @@ class Sheet {
 						i++;
 
 					// Move separator down one notch and finish
-					sheet.separators[i]++;
+					opStack.push(new ops.SeparatorMove(this, i, sheet.separators[i] + 1));
 					return index;
 				}
 		} else if (delta > 0) {
@@ -184,7 +201,7 @@ class Sheet {
 			for( i in 0...sheet.separators.length )
 				if( sheet.separators[i] == index + 1 ) {
 					// Move separator up one notch and finish
-					sheet.separators[i]--;
+					opStack.push(new ops.SeparatorMove(this, i, sheet.separators[i] - 1));
 					return index;
 				}
 
@@ -194,23 +211,10 @@ class Sheet {
 			return null;
 		}
 		
-		var index1 = index;
-		var index2 = index + delta;
+		var nested = getNestedPos(index);
+		opStack.push(new ops.RowMove(nested, index+delta));
 
-		// Swap rows
-		var row1 = sheet.lines[index1];
-		var row2 = sheet.lines[index2];
-		sheet.lines[index1] = row2;
-		sheet.lines[index2] = row1;
-
-		// Index remapping table
-		var remap = [for( i in 0...sheet.lines.length ) i];
-		remap[index1] = index2;
-		remap[index2] = index1;
-
-		changeLineOrder(remap);
-
-		return index2;
+		return index + delta;
 	}
 
 	public function deleteLine( index : Int ) {
@@ -322,7 +326,12 @@ class Sheet {
 		}
 	}
 
-	function changeLineOrder( remap : Array<Int> ) {
+	// returns true if we need to save the full db
+	// false if no modifications
+	//public static function changeLineOrder( remap : Array<Int>, base : Database, sheetName : String  ) : Bool {
+	public function changeLineOrder( remap : Array<Int> ) : Bool {
+		var anyModifications : Bool = false;
+
 		for( s in base.sheets )
 			for( c in s.columns )
 				switch( c.type ) {
@@ -338,9 +347,12 @@ class Sheet {
 						}
 						ldat = cdb.Types.Layer.encode(d, base.compress);
 						Reflect.setField(obj, c.name, ldat);
+						anyModifications = false;
 					}
 				default:
 				}
+		
+		return anyModifications;
 	}
 
 	public function getReferences( index : Int ) {
@@ -385,109 +397,6 @@ class Sheet {
 				}
 		}
 		return results;
-	}
-
-	public function updateValue( c : Column, index : Int, old : Dynamic ) {
-		switch( c.type ) {
-		case TId:
-			sync();
-		case TInt if( isLevel() && (c.name == "width" || c.name == "height") ):
-			var obj = sheet.lines[index];
-			var newW : Int = Reflect.field(obj, "width");
-			var newH : Int = Reflect.field(obj, "height");
-			var oldW = newW;
-			var oldH = newH;
-			if( c.name == "width" )
-				oldW = old;
-			else
-				oldH = old;
-
-			function remapTileLayer( v : cdb.Types.TileLayer ) {
-
-				if( v == null ) return null;
-
-				var odat = v.data.decode();
-				var ndat = [];
-
-				// object layer
-				if( odat[0] == 0xFFFF )
-					ndat = odat;
-				else {
-					var pos = 0;
-					for( y in 0...newH ) {
-						if( y >= oldH ) {
-							for( x in 0...newW )
-								ndat.push(0);
-						} else if( newW <= oldW ) {
-							for( x in 0...newW )
-								ndat.push(odat[pos++]);
-							pos += oldW - newW;
-						} else {
-							for( x in 0...oldW )
-								ndat.push(odat[pos++]);
-							for( x in oldW...newW )
-								ndat.push(0);
-						}
-					}
-				}
-				return { file : v.file, size : v.size, stride : v.stride, data : cdb.Types.TileLayerData.encode(ndat, base.compress) };
-			}
-
-			for( c in sheet.columns ) {
-				var v : Dynamic = Reflect.field(obj, c.name);
-				if( v == null ) continue;
-				switch( c.type ) {
-				case TLayer(_):
-					var v : cdb.Types.Layer<Int> = v;
-					var odat = v.decode([for( i in 0...256 ) i]);
-					var ndat = [];
-					for( y in 0...newH )
-						for( x in 0...newW ) {
-							var k = y < oldH && x < oldW ? odat[x + y * oldW] : 0;
-							ndat.push(k);
-						}
-					v = cdb.Types.Layer.encode(ndat, base.compress);
-					Reflect.setField(obj, c.name, v);
-				case TList:
-					var s = getSub(c);
-					if( s.hasColumn("x", [TInt,TFloat]) && s.hasColumn("y", [TInt,TFloat]) ) {
-						var elts : Array<{ x : Float, y : Float }> = Reflect.field(obj, c.name);
-						for( e in elts.copy() )
-							if( e.x >= newW || e.y >= newH )
-								elts.remove(e);
-					} else if( s.hasColumn("data", [TTileLayer]) ) {
-						var a : Array<{ data : cdb.Types.TileLayer }> = v;
-						for( o in a )
-							o.data = remapTileLayer(o.data);
-					}
-				case TTileLayer:
-					Reflect.setField(obj, c.name, remapTileLayer(v));
-				default:
-				}
-			}
-		default:
-			if( sheet.props.displayColumn == c.name ) {
-				var obj = sheet.lines[index];
-				for( cid in sheet.columns )
-					if( cid.type == TId ) {
-						var id = Reflect.field(obj, cid.name);
-						if( id != null ) {
-							var disp = Reflect.field(obj, c.name);
-							if( disp == null ) disp = "#" + id;
-							this.index.get(id).disp = disp;
-						}
-					}
-			}
-			if( sheet.props.displayIcon == c.name ) {
-				var obj = sheet.lines[index];
-				for( cid in sheet.columns )
-					if( cid.type == TId ) {
-						var id = Reflect.field(obj, cid.name);
-						if( id != null && id != "" )
-							this.index.get(id).ico = Reflect.field(obj, c.name);
-					}
-			}
-		}
 	}
 
 	function sortById( a : SheetIndex, b : SheetIndex ) {

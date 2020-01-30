@@ -17,37 +17,71 @@ package cdb;
 
 class Parser {
 
-	public static function saveType( t : Data.ColumnType ) : String {
+	public static function saveType( t : Data.ColumnType, legacyIntNames : Bool = false ) : String {
+		var baseName : String = null;
+
+		if (legacyIntNames) {
+			baseName = Std.string(Type.enumIndex(t));
+		} else {
+			baseName = switch(t) {
+				case TId		: "Id";
+				case TString	: "String";
+				case TBool		: "Bool";
+				case TInt		: "Int";
+				case TFloat		: "Float";
+				case TEnum(_)	: "Enum";
+				case TRef(_)	: "Ref";
+				case TImage		: "Image";
+				case TList		: "List";
+				case TCustom(_)	: "Custom";
+				case TFlags(_)	: "Flags";
+				case TColor		: "Color";
+				case TLayer(_)	: "Layer";
+				case TFile		: "File";
+				case TTilePos	: "TilePos";
+				case TTileLayer	: "TileLayer";
+				case TDynamic	: "Dynamic";
+				case TProperties: "Properties";
+			}
+		}
+
 		return switch( t ) {
-		case TRef(_), TCustom(_), TLayer(_):
-			Type.enumIndex(t) + ":" + Type.enumParameters(t)[0];
-		case TEnum(values), TFlags(values):
-			Type.enumIndex(t) + ":" + values.join(",");
-		case TId, TString, TList, TInt, TImage, TFloat, TBool, TColor, TFile, TTilePos, TTileLayer, TDynamic, TProperties:
-			Std.string(Type.enumIndex(t));
-		};
+			case TRef(_), TCustom(_), TLayer(_):
+				baseName + ":" + Type.enumParameters(t)[0];
+			case TEnum(values), TFlags(values):
+				baseName + ":" + values.join(",");
+			case TId, TString, TList, TInt, TImage, TFloat, TBool, TColor, TFile, TTilePos, TTileLayer, TDynamic, TProperties:
+				baseName;
+			};
 	}
 
 	public static function getType( str : String ) : Data.ColumnType {
-		return switch( Std.parseInt(str) ) {
-		case 0: TId;
-		case 1: TString;
-		case 2: TBool;
-		case 3: TInt;
-		case 4: TFloat;
-		case 5: TEnum(str.substr(str.indexOf(":") + 1).split(","));
-		case 6: TRef(str.substr(str.indexOf(":") + 1));
-		case 7: TImage;
-		case 8: TList;
-		case 9: TCustom(str.substr(str.indexOf(":") + 1));
-		case 10: TFlags(str.substr(str.indexOf(":") + 1).split(","));
-		case 11: TColor;
-		case 12: TLayer(str.substr(str.indexOf(":") + 1));
-		case 13: TFile;
-		case 14: TTilePos;
-		case 15: TTileLayer;
-		case 16: TDynamic;
-		case 17: TProperties;
+		var colonIndex = str.indexOf(":");
+		var afterColon : String = null;
+		if (colonIndex > 0) {
+			afterColon = str.substr(colonIndex + 1);
+			str = str.substr(0, colonIndex);
+		}
+
+		return switch( str ) {
+		case "0","Id"			: TId;
+		case "1","String"		: TString;
+		case "2","Bool"			: TBool;
+		case "3","Int"			: TInt;
+		case "4","Float"		: TFloat;
+		case "5","Enum"			: TEnum(afterColon.split(","));
+		case "6","Ref"			: TRef(afterColon);
+		case "7","Image"		: throw "TImage is unsupported."; //TImage;
+		case "8","List"			: TList;
+		case "9","Custom"		: throw "TCustom is unsupported.";// TCustom(afterColon);
+		case "10","Flags"		: TFlags(afterColon.split(","));
+		case "11","Color"		: TColor;
+		case "12","Layer"		: throw "TLayer is unsupported.";//TLayer(afterColon);
+		case "13","File"		: TFile;
+		case "14","TilePos"		: TTilePos;
+		case "15","TileLayer"	: TTileLayer;
+		case "16","Dynamic"		: TDynamic;
+		case "17","Properties"	: TProperties;
 		default: throw "Unknown type " + str;
 		}
 	}
@@ -123,8 +157,9 @@ class Parser {
 	}
 
 	public static function saveMultifile( data : Data, outPath : String ) {
-		MultifileLoadSave.saveMultifileRootSchema(data, outPath);
+		MultifileLoadSave.nukeContentFiles(outPath);
 		MultifileLoadSave.saveMultifileTableContents(data, outPath);
+		MultifileLoadSave.saveMultifileRootSchema(data, outPath);
 	}
 
 	public static function saveMonofile( data : Data, compact : Bool = false ) : String {

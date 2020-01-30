@@ -884,3 +884,6 @@ div#menu ul.sheets li.active {
 #search i:hover {
 	color: #888;
 }
+.array-shortened {
+	color: #ccc;
+}

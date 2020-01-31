@@ -1537,8 +1537,9 @@ save();
 				} else
 					Reflect.setField(obj, column.name, val);
 				html = getValue();
-				editDone();
 				commitOpAndSave();
+				editDone();
+				
 			};
 
 		case TTileLayer:

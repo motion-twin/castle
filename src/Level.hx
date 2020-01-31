@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+import ops.RowModify;
 import cdb.Data;
 import cdb.Sheet;
 import js.jquery.Helper.*;
@@ -46,7 +47,7 @@ class Level {
 	public var index : Int;
 	public var width : Int;
 	public var height : Int;
-	public var model : Model;
+	public var model : Main;
 	public var tileSize : Int;
 	public var sheet : Sheet;
 	public var layers : Array<LayerData>;
@@ -65,6 +66,7 @@ class Level {
 	var mouseDown : { rx : Int, ry : Int, w : Int, h : Int };
 	var deleteMode : { l : LayerData };
 	var needSave : Bool;
+	var opInProgress : RowModify;
 	var waitCount : Int;
 	var mouseCapture(default,set) : JQuery;
 
@@ -85,7 +87,7 @@ class Level {
 
 	static var loadedTilesCache = new Map< String, { pending : Array < Int->Int->Array<lvl.Image>->Array<Bool>->Void >, data : { w : Int, h : Int, img : Array<lvl.Image>, blanks : Array<Bool> }} >();
 
-	public function new( model : Model, sheet : Sheet, index : Int ) {
+	public function new( model : Main, sheet : Sheet, index : Int ) {
 		this.sheet = sheet;
 		this.sheetPath = sheet.getPath();
 		this.index = index;
@@ -466,6 +468,7 @@ class Level {
 	}
 
 	@:keep function action(name, ?val:Dynamic) {
+		var op = prepOp("Action '" + name + "'");
 		var l = currentLayer;
 		switch( name ) {
 		case "close":
@@ -503,7 +506,7 @@ class Level {
 					}
 					t.file = path;
 					currentLayer.dirty = true;
-					save();
+					commitOp(op);
 					reload();
 				default:
 				}
@@ -530,7 +533,7 @@ class Level {
 				t.stride = Std.int(t.size * t.stride / size);
 				t.size = size;
 				l.dirty = true;
-				save();
+				commitOp(op);
 				reload();
 			default:
 			}
@@ -542,6 +545,7 @@ class Level {
 
 
 	@:keep function addNewLayer( name ) {
+		var op = prepOp("New Layer");
 		switch( newLayer.type ) {
 		case TList:
 			var s = sheet.getSub(newLayer);
@@ -565,7 +569,7 @@ class Level {
 			props.layers.push({ l : name, p : { alpha : 1. } });
 			currentLayer = cast { name : name };
 			savePrefs();
-			save();
+			commitOp(op);
 			reload();
 		default:
 		}
@@ -583,6 +587,7 @@ class Level {
 		for( m in [nshow, nshowAll, nrename, nclear, ndel] )
 			n.append(m);
 		nclear.click = function() {
+			var op = prepOp("Clear");
 			switch( l.data ) {
 			case Tiles(_, data):
 				for( i in 0...data.length )
@@ -596,14 +601,15 @@ class Level {
 				while( insts.length > 0 ) insts.pop();
 			}
 			l.dirty = true;
-			save();
+			commitOp(op);
 			draw();
 		};
 		ndel.enabled = l.listColumnn != null;
 		ndel.click = function() {
+			var op = prepOp("Delete Layer");
 			var layers : Array<Dynamic> = Reflect.field(obj, l.listColumnn.name);
 			layers.remove(l.targetObj.o);
-			save();
+			commitOp(op);
 			reload();
 		};
 		nshow.click = function() {
@@ -629,6 +635,7 @@ class Level {
 						reload();
 						return;
 					}
+				var op = prepOp("Rename");
 				for( p in props.layers )
 					if( p.l == l.name )
 						p.l = n;
@@ -639,7 +646,7 @@ class Level {
 				l.name = n;
 				currentLayer = null;
 				setLayer(l);
-				save();
+				commitOp(op);
 				reload();
 			}).keypress(function(e) if( e.keyCode == 13 ) JTHIS.blur()));
 		};
@@ -700,7 +707,7 @@ class Level {
 			J("<span>").text(l.name).appendTo(td);
 
 			if( l.images != null || l.colors == null ) {
-				td.find("span").css("margin-top", "10px");
+				//td.find("span").css("margin-top", "10px");
 				/*var isel = J("<div class='img'>").appendTo(td);
 				if( l.images.length > 0 ) isel.append(J(l.images[l.current].getCanvas()));
 				isel.click(function(e) {
@@ -744,6 +751,8 @@ class Level {
 		}
 
 		var callb = allocRef(function(_) {
+			var op = prepOp("???");
+
 			var indexes = [];
 			for( i in mlayers.find("li").elements() )
 				indexes.push(i.data("index"));
@@ -767,7 +776,7 @@ class Level {
 				var objs = [for( l in layers ) l.targetObj.o];
 				Reflect.setField(obj, g, objs);
 			}
-			save();
+			commitOp(op);
 			draw();
 		});
 		setSort(mlayers, callb);
@@ -793,8 +802,9 @@ class Level {
 		};
 
 		spectrum(content.find("[name=color]"), { clickoutFiresChange : true, showButtons : false }, allocRef(function(c) {
+			var op = prepOp("Color");
 			currentLayer.props.color = c;
-			save();
+			commitOp(op);
 			draw();
 		}));
 
@@ -821,7 +831,7 @@ class Level {
 		function onMouseUp(_) {
 			mouseDown = null;
 			if( currentLayer != null && currentLayer.hasSize ) setCursor();
-			if( needSave ) save();
+			if( needSave ) commitOp(opInProgress);//save();
 		}
 		scroll.mousedown(function(e) {
 			if( palette.mode != null ) {
@@ -885,13 +895,16 @@ class Level {
 			startPos = null;
 			if( selection != null ) {
 				moveSelection();
-				save();
+//				save();
+commitOp(opInProgress);
 				draw();
 			}
 		});
 	}
 
 	function setObject() {
+		var op = prepOp("Set Object");
+		
 		switch( currentLayer.data ) {
 		case Objects(idCol, objs):
 			var l = currentLayer;
@@ -950,7 +963,7 @@ class Level {
 			});
 			if( hasProps(l, true) )
 				editProps(l, Lambda.indexOf(objs, o));
-			save();
+			commitOp(op);
 			draw();
 		default:
 		}
@@ -1001,6 +1014,8 @@ class Level {
 
 		var ix = Std.int(dx);
 		var iy = Std.int(dy);
+
+		var op = prepOp("Move selection " + ix + "," + iy);
 
 		for( l in layers ) {
 			if( !l.enabled() ) continue;
@@ -1070,7 +1085,8 @@ class Level {
 				}
 			}
 		}
-		save();
+		
+		commitOp(op);
 		draw();
 	}
 
@@ -1260,6 +1276,7 @@ class Level {
 	function paint(x, y) {
 		var l = currentLayer;
 		if( !l.enabled() ) return;
+		var op = prepOp("Paint");
 		switch( l.data ) {
 		case Layer(data):
 			var k = data[x + y * width];
@@ -1288,7 +1305,7 @@ class Level {
 					todo.push(y + 1);
 				}
 			}
-			save();
+			commitOp(op);
 			draw();
 		case Tiles(_, data):
 			var k = data[x + y * width];
@@ -1324,7 +1341,7 @@ class Level {
 			}
 			for( z in zero )
 				data[z] = 0;
-			save();
+			commitOp(op);
 			draw();
 		default:
 		}
@@ -1419,6 +1436,7 @@ class Level {
 			setCursor();
 		case "O".code:
 			if( palette != null && l.tileProps != null ) {
+				var op = prepOp("O");
 				var mode = Object;
 				var found = false;
 
@@ -1461,7 +1479,7 @@ class Level {
 				}
 
 				setCursor();
-				save();
+				commitOp(op);
 				draw();
 			}
 		case "R".code:
@@ -1515,9 +1533,10 @@ class Level {
 				setCursor();
 			}
 		case K.DELETE if( selection != null ):
+			var op = prepOp("Delete Selection");
 			deleteSelection();
 			clearSelection();
-			save();
+			commitOp(op);
 			draw();
 			return;
 		default:
@@ -1562,6 +1581,7 @@ class Level {
 	}
 
 	function deleteAll( l : LayerData, k : Int, index : Int ) {
+		var op = prepOp("Delete All");
 		switch( l.data ) {
 		case Layer(data), Tiles(_, data):
 			for( i in 0...width * height )
@@ -1575,13 +1595,16 @@ class Level {
 					insts.remove(i);
 		}
 		l.dirty = true;
-		save();
+		commitOp(op);
 		draw();
 	}
 
 	function doDelete() {
 		var p = pick(deleteMode.l == null ? null : function(l2) return l2 == deleteMode.l);
 		if( p == null ) return;
+		
+		var op = prepOp("Delete");
+
 		deleteMode.l = p.layer;
 		switch( p.layer.data ) {
 		case Layer(data):
@@ -1589,11 +1612,11 @@ class Level {
 			data[p.index] = 0;
 			p.layer.dirty = true;
 			cursor.css({ opacity : 0 }).fadeTo(100,1);
-			save();
+			commitOp(op);
 			draw();
 		case Objects(_, objs):
 			if( objs.remove(objs[p.index]) ) {
-				save();
+				commitOp(op);
 				draw();
 			}
 		case Tiles(_, data):
@@ -1610,13 +1633,13 @@ class Level {
 			if( changed ) {
 				p.layer.dirty = true;
 				cursor.css({ opacity : 0 }).fadeTo(100,1);
-				save();
+				commitOp(op);
 				draw();
 			}
 		case TileInstances(_, insts):
 			if( insts.remove(insts[p.index]) ) {
 				p.layer.dirty = true;
-				save();
+				commitOp(op);
 				draw();
 				return;
 			}
@@ -1627,7 +1650,7 @@ class Level {
 		switch( e.keyCode ) {
 		case K.DELETE:
 			deleteMode = null;
-			if( needSave ) save();
+			if( needSave ) commitOp(opInProgress);//save();
 		case K.SPACE:
 			spaceDown = false;
 			var canvas = J(view.getCanvas());
@@ -1657,12 +1680,14 @@ class Level {
 		switch( l.data ) {
 		case Layer(data):
 			if( data[x + y * width] == l.current || l.blanks[l.current] ) return;
+			var op = prepOp("set layer");
 			data[x + y * width] = l.current;
 			l.dirty = true;
-			save();
+			commitOp(op);
 			draw();
 		case Tiles(_, data):
 			var changed = false;
+			var op = prepOp("tiles");
 			if( palette.randomMode ) {
 				var putObjs = l.getSelObjects();
 				var putObj = putObjs[Std.random(putObjs.length)];
@@ -1718,9 +1743,10 @@ class Level {
 			}
 			if( !changed ) return;
 			l.dirty = true;
-			save();
+			commitOp(op);
 			draw();
 		case TileInstances(_, insts):
+			var op = prepOp("tile instances");
 			var objs = l.getTileObjects();
 			var putObjs = l.getSelObjects();
 			var putObj = putObjs[Std.random(putObjs.length)];
@@ -1758,7 +1784,7 @@ class Level {
 			}
 			insts.sort(function(i1, i2) { var dy = getY(i1) - getY(i2); return dy == 0 ? getX(i1) - getX(i2) : dy; });
 			l.dirty = true;
-			save();
+			commitOp(op);
 			draw();
 		case Objects(_):
 		}
@@ -1774,6 +1800,29 @@ class Level {
 		}
 		view.flush();
 	}
+
+
+	public function prepOp(opName:String="unnamed level op")  : RowModify {
+		if (needSave)
+			return opInProgress;
+		else
+			opInProgress = new RowModify(model, [{col:sheet.name, row:index}]);
+		return opInProgress;
+	}
+
+	public function commitOp(op: RowModify) {
+		if( mouseDown != null || deleteMode != null ) {
+			needSave = true;
+			return;
+		}
+		needSave = false;
+		for( l in layers )
+			l.save();
+		op.commitNewState(model);
+		model.opStack.pushNoApply(op);
+		opInProgress = null;
+	}
+
 
 	public function save() {
 		if( mouseDown != null || deleteMode != null ) {
@@ -1807,16 +1856,18 @@ class Level {
 	@:keep function scale( s : Float ) {
 		if( s == null || Math.isNaN(s) )
 			return;
+		var op = prepOp("Scale " + s);
 		for( l in layers ) {
 			if( !l.visible ) continue;
 			l.dirty = true;
 			l.scale(s);
 		}
-		save();
+		commitOp(op);
 		draw();
 	}
 
 	@:keep function scroll( dx : Int, dy : Int ) {
+		var op = prepOp("Scroll " + dx + ", " + dy);
 		if( dx == null || Math.isNaN(dx) ) dx = 0;
 		if( dy == null || Math.isNaN(dy) ) dy = 0;
 		for( l in layers ) {
@@ -1824,11 +1875,12 @@ class Level {
 			l.dirty = true;
 			l.scroll(dx, dy);
 		}
-		save();
+		commitOp(op);
 		draw();
 	}
 
 	@:keep function setTileSize( value : Int ) {
+		var op = prepOp();
 		this.props.tileSize = tileSize = value;
 		for( l in layers ) {
 			if( !l.hasFloatCoord ) continue;
@@ -1846,7 +1898,7 @@ class Level {
 			}
 		}
 		setCursor();
-		save();
+		commitOp(op);
 		draw();
 	}
 
@@ -1855,14 +1907,16 @@ class Level {
 			js.Browser.alert("Choose file first");
 			return;
 		}
+		var op = prepOp();
 		currentLayer.setMode(mode);
-		save();
+		commitOp(op);
 		reload();
 	}
 
 	@:keep function paletteOption(name, ?val:String) {
+		var op = prepOp();
 		if( palette.option(name, val) ) {
-			save();
+			commitOp(op);
 			draw();
 		}
 	}

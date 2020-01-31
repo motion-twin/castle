@@ -1631,16 +1631,19 @@ save();
 	}
 
 	public function refresh() {
-		trace("REFRESH");
+		trace("Refresh...");
+		var content = J("#content");
+		content.empty();
+
 		var t = J("<table>");
 		checkCursor = true;
 		fillTable(t, viewSheet);
 		if( cursor.s != viewSheet && checkCursor ) setCursor(viewSheet,false);
-		var content = J("#content");
-		content.empty();
+
 		t.appendTo(content);
 		J("<div>").appendTo(content).addClass("tableBottom");
 		updateCursor();
+		trace("Refresh finished.");
 	}
 
 	inline function makeRelativePath( path : String ) : String {

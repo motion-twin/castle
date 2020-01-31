@@ -14,7 +14,6 @@
 </head>
 
 <body>
-
 <div id="helpers">
 
 	<input type="file" id="fileSelect" style="display:none"/>
@@ -98,31 +97,15 @@
 		</div>
 	</div>
 
-	<div id="about" class="modal" style="display:none">
-		<div class="content">
-		<h1>About</h1>
-		<p>
-			Version 1.5
-		</p>
-		<p>
-			CastleDB has been created by Nicolas Cannasse
-		</p>
-		<p>
-			Help and updates on <a href="http://castledb.org" target="_blank">http://castledb.org</a>
-		</p>
-		<p>
-			<input type="submit" value="Close" onclick="$(this).parents('.modal').hide()"/>
-		</p>
-		</div>
-	</div>
-
 	<div id="menu">
 
 		<div class="errorMsg" style="display:none">
 			ERROR
 		</div>
 
+		<!--
 		<a href="javascript:_.editTypes()">Edit Types</a>
+		-->
 		<a href="javascript:_.insertLine()">New Line</a>
 		<a href="javascript:_.newColumn()">New Column</a>
 		<a href="javascript:_.newSheet()">New Sheet</a>
@@ -133,6 +116,7 @@
 			<li>Sheet 3</li>
 		</ul>
 
+		
 	</div>
 
 	<div class="box">

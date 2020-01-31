@@ -118,21 +118,6 @@ class MultifileLoadSave {
 		trace("SCHEMA SAVED!");
 	}
 
-	private static function getSeparatorIndexForRow(table: SheetData, rowIdx: Int, startAt : Int = -1) : Int {
-		if (table.separators == null)
-			return -1;
-
-		var sepIdx : Int = startAt;
-
-		for (i in (startAt + 1)...table.separators.length) {
-			if (table.separators[i] > rowIdx)
-				continue;
-			sepIdx = i;
-		}
-
-		return sepIdx;
-	}
-
 	private static function getIdField(table: SheetData) {
 		// find which column to use as ID
 		for (column in table.columns) {
@@ -181,21 +166,14 @@ class MultifileLoadSave {
 		}
 	}
 
-	public static function saveMultifileTableContents(
-		data: Data,
-		schemaPath : String,
-		dirty : Array<String> = null) // TODO: dirty rows
+	public static function saveMultifileTableContents(data: Data, schemaPath : String)
 	{
 		for (table in data.sheets) {
 			_saveTable(table, schemaPath);
 		}
 	}
 
-	private static function _saveTable(
-		table: SheetData,
-		schemaPath: String,
-		saveIndex: Bool = true,
-		saveRows: Bool = true)
+	private static function _saveTable(table: SheetData, schemaPath: String)
 	{
 		if (table.lines.length == 0) // don't bother dumping empty tables
 			return;
@@ -208,96 +186,48 @@ class MultifileLoadSave {
 		var idField = getIdField(table);
 
 		var sepIdx = -1;
+		var sepTitle = null;
 		for (rowIdx in 0...table.lines.length) {
 			var row = table.lines[rowIdx];
 
-			var rowname : String = idField != null
-				? Reflect.field(row, idField)
-				: StringTools.lpad(Std.string(rowIdx), "0", 4);
+			var rowname = "";
+			if (idField != null) {
+				rowname = Reflect.field(row, idField);
+			}
 			if (rowname.length == 0) {
 				rowname = StringTools.lpad(Std.string(rowIdx), "0", 4);
 			}
-			var sepIdx = getSeparatorIndexForRow(table, rowIdx, sepIdx);
-			if (sepIdx >= 0) {
-				var sepTitle = table.props.separatorTitles[sepIdx];
-				if (sepTitle == "") sepTitle = "__UntitledSeparator" + sepIdx;
+			
+			// Check for new separator
+			if (table.separators != null) {
+				var newSepIdx = sepIdx;
+				for (i in (sepIdx + 1)...table.separators.length) {
+					if (table.separators[i] > rowIdx)
+						break;
+					newSepIdx = i;
+				}
+
+				if (newSepIdx != sepIdx) {
+					sepIdx = newSepIdx;
+					sepTitle = table.props.separatorTitles[sepIdx];
+					if (sepTitle == "") sepTitle = "__UntitledSeparator" + sepIdx;
+					sys.FileSystem.createDirectory(tablePath + "/" + sepTitle);
+				}
+			}
+
+			if (sepTitle != null) {
 				rowname = sepTitle + "/" + rowname;
-				sys.FileSystem.createDirectory(tablePath + "/" + table.props.separatorTitles[sepIdx]);
 			}
 
-			if (saveIndex) {
-				tableIndex.push(rowname);
-			}
+			// For saving index at the end
+			tableIndex.push(rowname);
 
-			if (saveRows) {
-				var rowpath = tablePath + "/" + rowname + ".row";
-				sys.io.File.saveContent(rowpath, haxe.Json.stringify(row, null, "\t"));	
-			}
+			// Save row file
+			var rowpath = tablePath + "/" + rowname + ".row";
+			sys.io.File.saveContent(rowpath, haxe.Json.stringify(row, null, "\t"));	
 		}
 
-		if (saveIndex) {
-			sys.io.File.saveContent(
-				tablePath + "/_table.index",
-				haxe.Json.stringify(tableIndex, null, "\t"));
-		}
-	}
-
-	public static function saveTableIndex(schemaPath: String, table: SheetData) {
-		trace("Saving table index: " + table.name);
-		_saveTable(table, getBaseDir(schemaPath), true, false);
-	}
-
-	public static function saveTableFull(schemaPath: String, table: SheetData) {
-		trace("Saving full table: " + table.name);
-		_saveTable(table, getBaseDir(schemaPath), true, true);
-	}
-
-	public static function getRowPath(schemaPath : String, srcTable : SheetData, rowIdx : Int) {
-		var idField = getIdField(srcTable);
-
-		var rowname : String = idField != null
-			? Reflect.field(srcTable.lines[rowIdx], idField)
-			: StringTools.lpad(Std.string(rowIdx), "0", 4);
-		if (rowname.length == 0) {
-			rowname = StringTools.lpad(Std.string(rowIdx), "0", 4);
-		}
-
-		var sepIdx = getSeparatorIndexForRow(srcTable, rowIdx);
-		if (sepIdx >= 0)
-			rowname = srcTable.props.separatorTitles[sepIdx] + "/" + rowname;
-
-		var tablePath = getBaseDir(schemaPath) + "/" + srcTable.name;
-
-		return tablePath + "/" + rowname + ".row";
-	}
-
-	public static function getNestedRowPath(
-		schemaPath : String,
-		data : Database,
-		pos : NestedRowPos)
-	{
-		return getRowPath(schemaPath, data.getSheet(pos[0].col).sheet, pos[0].row);
-	}
-
-	public static function saveRow(schemaPath : String, table : SheetData, rowIdx : Int) {
-		var json = haxe.Json.stringify(table.lines[rowIdx], null, "\t");
-		var path = getRowPath(schemaPath, table, rowIdx);
-		trace("Saving row: " + path);
-		File.saveContent(path, json);
-	}
-
-	public static function deleteNestedRowFile(schemaPath : String, data : Database, pos : NestedRowPos) {
-		var path = getNestedRowPath(schemaPath, data, pos);
-		FileSystem.deleteFile(path);
-	}
-
-	public static function deleteRowFile(schemaPath : String, table : SheetData, rowIdx : Int) {
-		var path = getRowPath(schemaPath, table, rowIdx);
-		FileSystem.deleteFile(path);
-	}
-
-	public static function saveNestedRow(schemaPath : String, data : Database, pos : NestedRowPos) {
-		var rootRowTable = data.getSheet(pos[0].col).sheet;
-		saveRow(schemaPath, rootRowTable, pos[0].row);
+		// Save index
+		sys.io.File.saveContent(tablePath + "/_table.index", haxe.Json.stringify(tableIndex, null, "\t"));
 	}
 }

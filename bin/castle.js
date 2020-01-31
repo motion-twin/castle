@@ -7603,7 +7603,6 @@ Main.prototype = $extend(Model.prototype,{
 	}
 	,initMenu: function() {
 		var _gthis = this;
-		this.window.showDevTools();
 		var modifier = "ctrl";
 		var menu = new js_node_webkit_Menu({ type : "menubar"});
 		if(Sys.systemName().indexOf("Mac") != -1) {
@@ -7623,13 +7622,9 @@ Main.prototype = $extend(Model.prototype,{
 			_gthis.base.set_compress(_gthis.mcompress.checked);
 		};
 		var mexit = new js_node_webkit_MenuItem({ label : "Exit", key : "Q", modifiers : modifier});
-		var mdebug = new js_node_webkit_MenuItem({ label : "Dev"});
 		mnew.click = function() {
 			_gthis.prefs.curFile = null;
 			_gthis.load(true);
-		};
-		mdebug.click = function() {
-			_gthis.window.showDevTools();
 		};
 		mopen.click = function() {
 			var i = $("<input>").attr("type","file").css("display","none").change(function(e) {
@@ -7734,7 +7729,7 @@ Main.prototype = $extend(Model.prototype,{
 			i2.appendTo($("body"));
 			i2.click();
 		};
-		console.log("src/Main.hx:2864:",this.prefs.zoomLevel);
+		console.log("src/Main.hx:2862:",this.prefs.zoomLevel);
 		this.window.zoomLevel = this.prefs.zoomLevel;
 		var mi_zoom = new js_node_webkit_MenuItem({ label : "Zoom"});
 		var m_zoom = new js_node_webkit_Menu();
@@ -7767,11 +7762,9 @@ Main.prototype = $extend(Model.prototype,{
 			this.macEditMenu = menu.items[0];
 			menu.removeAt(0);
 			menu.insert(mfile,0);
-			mfiles.insert(mdebug,7);
 		} else {
 			menu.append(mfile);
 			menu.append(mi_zoom);
-			menu.append(mdebug);
 		}
 		this.window.menu = menu;
 		if(this.prefs.windowPos.x > 0 && this.prefs.windowPos.y > 0) {
@@ -7827,7 +7820,7 @@ Main.prototype = $extend(Model.prototype,{
 			history = true;
 		}
 		Model.prototype.save.call(this,history);
-		console.log("src/Main.hx:2949:","Finish Saving");
+		console.log("src/Main.hx:2945:","Finish Saving");
 	}
 	,nuclearSave: function(history) {
 		if(history == null) {

@@ -6,3 +6,4 @@
 -lib format
 -lib hxbit
 -D lz4js
+-D EDITOR

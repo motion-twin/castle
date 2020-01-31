@@ -2754,7 +2754,7 @@ save();
 	}
 
 	function initMenu() {
-		window.showDevTools();
+//		window.showDevTools();
 		var modifier = "ctrl";
 		var menu = Menu.createWindowMenu();
 		if(Sys.systemName().indexOf("Mac") != -1) {
@@ -2774,12 +2774,10 @@ save();
 			base.compress = mcompress.checked;
 		};
 		var mexit = new MenuItem( { label : "Exit", key : "Q", modifiers : modifier } );
-		var mdebug = new MenuItem( { label : "Dev" } );
 		mnew.click = function() {
 			prefs.curFile = null;
 			load(true);
 		};
-		mdebug.click = function() window.showDevTools();
 		mopen.click = function() {
 			var i = J("<input>").attr("type", "file").css("display","none").change(function(e) {
 				var j = JTHIS;
@@ -2889,13 +2887,11 @@ save();
 			macEditMenu = menu.items[0]; // save default edit menu
 			menu.removeAt(0); // remove default edit menu
 			menu.insert(mfile, 0); // put it before the default Edit menu
-			mfiles.insert(mdebug, 7); // needs to go under File or it won't show
 		}
 		else {
 			menu.append(mfile);
 //			menu.append(mi_edit);
 			menu.append(mi_zoom);
-			menu.append(mdebug);
 		}
 
 		window.menu = menu;

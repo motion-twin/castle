@@ -177,6 +177,7 @@ class Sheet {
 		return false;
 	}
 
+#if EDITOR
 	public function moveLine( opStack : OperationStack, index : Int, delta : Int ) : Null<Int> {
 		if (sheet == null || delta == 0)
 			return null;
@@ -287,6 +288,7 @@ class Sheet {
 		}
 		return null;
 	}
+#end
 
 	public function getDefaults() {
 		var props = {};

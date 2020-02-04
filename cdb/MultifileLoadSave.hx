@@ -10,7 +10,7 @@ class MultifileLoadSave {
 	public static var MULTIFILE_CDB_DIR = "cdb";
 	public static var MULTIFILE_FORMAT = "ee-multifile";
 	
-#if (!macro && heaps)
+#if (!macro && pak)
 	public static function getBaseDir(schemaPath: String) : String {
 		return MULTIFILE_CDB_DIR;
 	}
@@ -20,7 +20,7 @@ class MultifileLoadSave {
 			? hxd.Res.load(fullPath).entry.getBytes().toString()
 			: null;
 	}
-#elseif (macro || sys || js)
+#else
 	private inline static function intmax(a:Int, b:Int) : Int {
 		return a > b ? a : b;
 	}

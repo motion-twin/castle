@@ -20,11 +20,18 @@
 }
 
 #now-saving-text {
-	padding: 1em;
 	margin: 0;
-	background: var(--header-bg);
+	background: rgba(0, 0, 0, 0.5);
 	color: white;
-	
+	position: fixed;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	right: 0;
+	padding-top: 64px;
+	font-size: 100pt;
+	vertical-align: middle;
+	-webkit-text-stroke: 5px black;
 }
 
 .save-reminder {

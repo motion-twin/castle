@@ -65,6 +65,11 @@ class Sheet {
 		else {
 			colName = parent.sheet.columns[parent.column].name;
 			pos = parent.sheet.getNestedPos(parent.line);
+
+			// properties are just a cell containing a "tuple", they're not a sub-table, so cut the hierarchy here
+			if (parent.sheet.columns[parent.column].type == TProperties) {
+				return pos;
+			}
 		}
 		pos.push({col: colName, row: rowIndex});
 		return pos;

@@ -83,9 +83,13 @@ class Model {
 		if( prefs.curFile == null )
 			return;
 		trace("full save");
+		js.Browser.document.querySelector("#now-saving-text").className  = "";
 		js.Browser.window.setTimeout(function() {
 			base.saveMultifile(prefs.curFile);
-			opStack.setSavePointHere();
+			js.Browser.window.setTimeout(function() {
+				opStack.setSavePointHere();
+				js.Browser.document.querySelector("#now-saving-text").className = "no-display";
+			});
 		});
 	}
 

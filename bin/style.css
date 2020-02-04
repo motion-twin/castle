@@ -15,6 +15,18 @@
 	--startcell-bg:						#f0f0f8;
 }
 
+.no-display {
+	display: none;
+}
+
+#now-saving-text {
+	padding: 1em;
+	margin: 0;
+	background: var(--header-bg);
+	color: white;
+	
+}
+
 .save-reminder {
 	display: none;
 	text-align: center;;

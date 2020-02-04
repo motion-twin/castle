@@ -83,8 +83,10 @@ class Model {
 		if( prefs.curFile == null )
 			return;
 		trace("full save");
-		opStack.setSavePointHere();
-		js.Browser.window.setTimeout(function() base.saveMultifile(prefs.curFile));
+		js.Browser.window.setTimeout(function() {
+			base.saveMultifile(prefs.curFile);
+			opStack.setSavePointHere();
+		});
 	}
 
 	function saveImages() {

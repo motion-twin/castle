@@ -4005,7 +4005,6 @@ Main.prototype = $extend(Model.prototype,{
 		return new ops_FullSnapshot().setPreviousState(this);
 	}
 	,commitSnapshot: function(op) {
-		console.log("src/Main.hx:144:","CommitSnapshot");
 		op.setCurrentState(this);
 		this.opStack.pushNoApply(op);
 		this.refresh();
@@ -5317,7 +5316,7 @@ Main.prototype = $extend(Model.prototype,{
 			v.removeClass("edit");
 			_gthis.setErrorMessage();
 			if(rowModifyOp.isUseless()) {
-				console.log("src/Main.hx:1252:","last operation was useless");
+				console.log("src/Main.hx:1251:","last operation was useless");
 				_gthis.opStack.removeLastOp(rowModifyOp);
 			}
 		};
@@ -6021,7 +6020,7 @@ Main.prototype = $extend(Model.prototype,{
 		}
 	}
 	,refresh: function() {
-		console.log("src/Main.hx:1635:","Refresh...");
+		console.log("src/Main.hx:1634:","Refresh...");
 		var content = $("#content");
 		content.empty();
 		var t = $("<table>");
@@ -6033,7 +6032,7 @@ Main.prototype = $extend(Model.prototype,{
 		t.appendTo(content);
 		$("<div>").appendTo(content).addClass("tableBottom");
 		this.updateCursor();
-		console.log("src/Main.hx:1647:","Refresh finished.");
+		console.log("src/Main.hx:1646:","Refresh finished.");
 	}
 	,makeRelativePath: function(path) {
 		if(this.prefs.curFile == null) {
@@ -6928,7 +6927,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2264:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2263:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -6937,7 +6936,7 @@ Main.prototype = $extend(Model.prototype,{
 		if(manual == null) {
 			manual = true;
 		}
-		console.log("src/Main.hx:2269:","selectSheet " + s.sheet.name);
+		console.log("src/Main.hx:2268:","selectSheet " + s.sheet.name);
 		this.viewSheet = s;
 		this.pages.curPage = -1;
 		var key = s.sheet.name;
@@ -7734,7 +7733,7 @@ Main.prototype = $extend(Model.prototype,{
 			i2.appendTo($("body"));
 			i2.click();
 		};
-		console.log("src/Main.hx:2862:",this.prefs.zoomLevel);
+		console.log("src/Main.hx:2861:",this.prefs.zoomLevel);
 		this.window.zoomLevel = this.prefs.zoomLevel;
 		var mi_zoom = new js_node_webkit_MenuItem({ label : "Zoom"});
 		var m_zoom = new js_node_webkit_Menu();
@@ -7825,7 +7824,7 @@ Main.prototype = $extend(Model.prototype,{
 			history = true;
 		}
 		Model.prototype.save.call(this,history);
-		console.log("src/Main.hx:2945:","Finish Saving");
+		console.log("src/Main.hx:2944:","Finish Saving");
 	}
 	,nuclearSave: function(history) {
 		if(history == null) {
@@ -11664,13 +11663,46 @@ cdb_MultifileLoadSave.nukeContentFiles = function(schemaPath) {
 			var file = _g1[_g];
 			++_g;
 			var path = haxe_io_Path.join([dir,file]);
-			if(!(!sys_FileSystem.isDirectory(path))) {
+			if(!sys_FileSystem.isDirectory(path)) {
+				js_node_Fs.unlinkSync(path);
+			} else {
 				var subdir = haxe_io_Path.addTrailingSlash(path);
 				frontier.push(subdir);
 			}
 		}
 	}
-	while(frontier.length > 0) frontier.pop();
+	while(frontier.length > 0) {
+		var path1 = frontier.pop();
+		if(sys_FileSystem.exists(path1)) {
+			var _g2 = 0;
+			var _g11 = js_node_Fs.readdirSync(path1);
+			while(_g2 < _g11.length) {
+				var file1 = _g11[_g2];
+				++_g2;
+				var curPath = path1 + "/" + file1;
+				if(sys_FileSystem.isDirectory(curPath)) {
+					if(sys_FileSystem.exists(curPath)) {
+						var _g3 = 0;
+						var _g12 = js_node_Fs.readdirSync(curPath);
+						while(_g3 < _g12.length) {
+							var file2 = _g12[_g3];
+							++_g3;
+							var curPath1 = curPath + "/" + file2;
+							if(sys_FileSystem.isDirectory(curPath1)) {
+								sys_FileSystem.deleteDirectory(curPath1);
+							} else {
+								js_node_Fs.unlinkSync(curPath1);
+							}
+						}
+						js_node_Fs.rmdirSync(curPath);
+					}
+				} else {
+					js_node_Fs.unlinkSync(curPath);
+				}
+			}
+			js_node_Fs.rmdirSync(path1);
+		}
+	}
 };
 cdb_MultifileLoadSave.saveMultifileTableContents = function(data,schemaPath) {
 	var _g = 0;
@@ -12166,6 +12198,9 @@ cdb_Sheet.prototype = {
 		} else {
 			colName = this.parent.sheet.sheet.columns[this.parent.column].name;
 			pos = this.parent.sheet.getNestedPos(this.parent.line);
+			if(this.parent.sheet.sheet.columns[this.parent.column].type == cdb_ColumnType.TProperties) {
+				return pos;
+			}
 		}
 		pos.push({ col : colName, row : rowIndex});
 		return pos;
@@ -23687,6 +23722,23 @@ sys_FileSystem.createDirectory = function(path) {
 				throw e1;
 			}
 		}
+	}
+};
+sys_FileSystem.deleteDirectory = function(path) {
+	if(sys_FileSystem.exists(path)) {
+		var _g = 0;
+		var _g1 = js_node_Fs.readdirSync(path);
+		while(_g < _g1.length) {
+			var file = _g1[_g];
+			++_g;
+			var curPath = path + "/" + file;
+			if(sys_FileSystem.isDirectory(curPath)) {
+				sys_FileSystem.deleteDirectory(curPath);
+			} else {
+				js_node_Fs.unlinkSync(curPath);
+			}
+		}
+		js_node_Fs.rmdirSync(path);
 	}
 };
 var sys_io_FileInput = function(fd) {

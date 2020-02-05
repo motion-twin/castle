@@ -85,7 +85,12 @@ class Model {
 		trace("full save");
 		js.Browser.document.querySelector("#now-saving-text").className  = "";
 		js.Browser.window.setTimeout(function() {
-			base.saveMultifile(prefs.curFile);
+			if (base.isMultifile) {
+				base.saveMultifile(prefs.curFile);
+			} else {
+				sys.io.File.saveContent(prefs.curFile, base.saveMonofile());
+			}
+
 			js.Browser.window.setTimeout(function() {
 				opStack.setSavePointHere();
 				js.Browser.document.querySelector("#now-saving-text").className = "no-display";

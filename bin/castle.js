@@ -3796,7 +3796,11 @@ Model.prototype = {
 		console.log("src/Model.hx:85:","full save");
 		window.document.querySelector("#now-saving-text").className = "";
 		window.setTimeout(function() {
-			_gthis.base.saveMultifile(_gthis.prefs.curFile);
+			if(_gthis.base.get_isMultifile()) {
+				_gthis.base.saveMultifile(_gthis.prefs.curFile);
+			} else {
+				js_node_Fs.writeFileSync(_gthis.prefs.curFile,_gthis.base.saveMonofile());
+			}
 			window.setTimeout(function() {
 				_gthis.opStack.setSavePointHere();
 				window.document.querySelector("#now-saving-text").className = "no-display";
@@ -6927,7 +6931,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2263:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2264:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -6936,7 +6940,7 @@ Main.prototype = $extend(Model.prototype,{
 		if(manual == null) {
 			manual = true;
 		}
-		console.log("src/Main.hx:2268:","selectSheet " + s.sheet.name);
+		console.log("src/Main.hx:2269:","selectSheet " + s.sheet.name);
 		this.viewSheet = s;
 		this.pages.curPage = -1;
 		var key = s.sheet.name;
@@ -7733,7 +7737,7 @@ Main.prototype = $extend(Model.prototype,{
 			i2.appendTo($("body"));
 			i2.click();
 		};
-		console.log("src/Main.hx:2861:",this.prefs.zoomLevel);
+		console.log("src/Main.hx:2862:",this.prefs.zoomLevel);
 		this.window.zoomLevel = this.prefs.zoomLevel;
 		var mi_zoom = new js_node_webkit_MenuItem({ label : "Zoom"});
 		var m_zoom = new js_node_webkit_Menu();
@@ -7824,7 +7828,7 @@ Main.prototype = $extend(Model.prototype,{
 			history = true;
 		}
 		Model.prototype.save.call(this,history);
-		console.log("src/Main.hx:2944:","Finish Saving");
+		console.log("src/Main.hx:2945:","Finish Saving");
 	}
 	,nuclearSave: function(history) {
 		if(history == null) {

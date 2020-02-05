@@ -10,7 +10,7 @@ class MultifileLoadSave {
 	public static var MULTIFILE_CDB_DIR = "cdb";
 	public static var MULTIFILE_FORMAT = "ee-multifile";
 	
-#if (!macro && pak)
+#if (!macro && heaps && !cdbForceNativeFileAccess)
 	public static function getBaseDir(schemaPath: String) : String {
 		return MULTIFILE_CDB_DIR;
 	}

@@ -172,7 +172,8 @@ class Parser {
 			for( c in s.columns ) {
 				if( c.type == TId && idField == null ) idField = c.name;
 				save.push(c.type);
-				if( c.typeStr == null ) c.typeStr = cdb.Parser.saveType(c.type);
+				if( c.typeStr == null )
+					c.typeStr = cdb.Parser.saveType(c.type, true); // use LEGACY type names for monofile CDB to preserve compat with modding tools in the wild
 				Reflect.deleteField(c, "type");
 			}
 			// remap separators based on indexes

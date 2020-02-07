@@ -12056,7 +12056,7 @@ cdb_Parser.saveMonofile = function(data,compact) {
 			}
 			save.push(c.type);
 			if(c.typeStr == null) {
-				c.typeStr = cdb_Parser.saveType(c.type);
+				c.typeStr = cdb_Parser.saveType(c.type,true);
 			}
 			Reflect.deleteField(c,"type");
 		}

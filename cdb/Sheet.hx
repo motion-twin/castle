@@ -187,7 +187,7 @@ class Sheet {
 		if (sheet == null || delta == 0)
 			return null;
 
-		if (delta < 0 && index > 0) {
+		if( delta < 0 ) {
 			// Find whether there's a separator ABOVE the row that we're moving up.
 			// If so, move the separator BELOW the row instead of modifying the row's position.
 			for( i in 0...sheet.separators.length )
@@ -201,6 +201,9 @@ class Sheet {
 					opStack.push(new ops.SeparatorMove(this, i, sheet.separators[i] + 1));
 					return index;
 				}
+
+			if( index <= 0 )
+				return null;
 		} else if (delta > 0) {
 			// Find whether there's a separator BELOW the row that we're moving down.
 			// If so, move the separator ABOVE the row instead of modifying the row's position.

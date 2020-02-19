@@ -2767,6 +2767,7 @@ save();
 		var mrecent = new MenuItem( { label : "Recent Files" } );
 		var msave = new MenuItem( { label : "Save", key : "S", modifiers : modifier } );
 		var msaveas = new MenuItem( { label : "Save As...", key : "S", modifiers : "shift+" + modifier } );
+		var msaveasmonofile = new MenuItem( { label : "Export Legacy Monofile..." } );
 		var mclean = new MenuItem( { label : "Clean Images" } );
 		var mexport = new MenuItem( { label : "Export Localized texts" } );
 		mcompress = new MenuItem( { label : "Enable Compression", type : MenuItemType.checkbox } );
@@ -2805,6 +2806,15 @@ save();
 			i.appendTo(J("body"));
 			i.click();
 		};
+		msaveasmonofile.click = function() {
+			var i = J("<input>").attr("type", "file").attr("nwsaveas","monofile.cdb").css("display","none").change(function(e) {
+				var j = JTHIS;
+				sys.io.File.saveContent(j.val(), base.saveMonofileLegacyFormat());
+				j.remove();
+			});
+			i.appendTo(J("body"));
+			i.click();
+		};
 		mclean.click = function() {
 			var op = prepSnapshot();
 			var lcount = @:privateAccess base.cleanLayers();
@@ -2838,7 +2848,7 @@ save();
 		}
 		mrecent.submenu = mrecents;
 
-		for( m in [mnew, mopen, mrecent, msave, msaveas, mclean, mcompress, mexport, mexit] )
+		for( m in [mnew, mopen, mrecent, msave, msaveas, msaveasmonofile, mclean, mcompress, mexport, mexit] )
 			mfiles.append(m);
 		mfile.submenu = mfiles;
 

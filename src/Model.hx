@@ -88,7 +88,7 @@ class Model {
 			if (base.isMultifile) {
 				base.saveMultifile(prefs.curFile);
 			} else {
-				sys.io.File.saveContent(prefs.curFile, base.saveMonofile());
+				sys.io.File.saveContent(prefs.curFile, base.saveMonofileLegacyFormat());
 			}
 
 			js.Browser.window.setTimeout(function() {

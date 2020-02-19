@@ -3799,7 +3799,7 @@ Model.prototype = {
 			if(_gthis.base.get_isMultifile()) {
 				_gthis.base.saveMultifile(_gthis.prefs.curFile);
 			} else {
-				js_node_Fs.writeFileSync(_gthis.prefs.curFile,_gthis.base.saveMonofile());
+				js_node_Fs.writeFileSync(_gthis.prefs.curFile,_gthis.base.saveMonofileLegacyFormat());
 			}
 			window.setTimeout(function() {
 				_gthis.opStack.setSavePointHere();
@@ -7623,6 +7623,7 @@ Main.prototype = $extend(Model.prototype,{
 		var mrecent = new js_node_webkit_MenuItem({ label : "Recent Files"});
 		var msave = new js_node_webkit_MenuItem({ label : "Save", key : "S", modifiers : modifier});
 		var msaveas = new js_node_webkit_MenuItem({ label : "Save As...", key : "S", modifiers : "shift+" + modifier});
+		var msaveasmonofile = new js_node_webkit_MenuItem({ label : "Export Legacy Monofile..."});
 		var mclean = new js_node_webkit_MenuItem({ label : "Clean Images"});
 		var mexport = new js_node_webkit_MenuItem({ label : "Export Localized texts"});
 		this.mcompress = new js_node_webkit_MenuItem({ label : "Enable Compression", type : "checkbox"});
@@ -7660,6 +7661,15 @@ Main.prototype = $extend(Model.prototype,{
 			});
 			i1.appendTo($("body"));
 			i1.click();
+		};
+		msaveasmonofile.click = function() {
+			var i2 = $("<input>").attr("type","file").attr("nwsaveas","monofile.cdb").css("display","none").change(function(e2) {
+				var j2 = $(this);
+				js_node_Fs.writeFileSync(j2.val(),_gthis.base.saveMonofileLegacyFormat());
+				j2.remove();
+			});
+			i2.appendTo($("body"));
+			i2.click();
 		};
 		mclean.click = function() {
 			var op = _gthis.prepSnapshot();
@@ -7716,28 +7726,30 @@ Main.prototype = $extend(Model.prototype,{
 		mfiles.append(m4);
 		var m5 = msaveas;
 		mfiles.append(m5);
-		var m6 = mclean;
+		var m6 = msaveasmonofile;
 		mfiles.append(m6);
-		var m7 = this.mcompress;
+		var m7 = mclean;
 		mfiles.append(m7);
-		var m8 = mexport;
+		var m8 = this.mcompress;
 		mfiles.append(m8);
-		var m9 = mexit;
+		var m9 = mexport;
 		mfiles.append(m9);
+		var m10 = mexit;
+		mfiles.append(m10);
 		mfile.submenu = mfiles;
 		mexport.click = function() {
 			var lang = new cdb_Lang(_gthis.base.data);
 			var xml = lang.buildXML();
-			var i2 = $("<input>").attr("type","file").attr("nwsaveas","export.xml").css("display","none").change(function(e2) {
-				var j2 = $(this);
-				var file2 = j2.val();
+			var i3 = $("<input>").attr("type","file").attr("nwsaveas","export.xml").css("display","none").change(function(e3) {
+				var j3 = $(this);
+				var file2 = j3.val();
 				js_node_Fs.writeFileSync(file2,String.fromCodePoint(65279) + xml);
-				j2.remove();
+				j3.remove();
 			});
-			i2.appendTo($("body"));
-			i2.click();
+			i3.appendTo($("body"));
+			i3.click();
 		};
-		console.log("src/Main.hx:2862:",this.prefs.zoomLevel);
+		console.log("src/Main.hx:2872:",this.prefs.zoomLevel);
 		this.window.zoomLevel = this.prefs.zoomLevel;
 		var mi_zoom = new js_node_webkit_MenuItem({ label : "Zoom"});
 		var m_zoom = new js_node_webkit_Menu();
@@ -7745,21 +7757,21 @@ Main.prototype = $extend(Model.prototype,{
 		var mi_zoomLevels_h = { };
 		var _g2 = -4;
 		while(_g2 < 7) {
-			var i3 = [_g2++];
-			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "" + Math.round(Math.pow(1.2,i3[0]) * 100) + "%", type : "checkbox"})];
-			mi_zoom_n[0].click = (function(mi_zoom_n1,i4) {
+			var i4 = [_g2++];
+			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "" + Math.round(Math.pow(1.2,i4[0]) * 100) + "%", type : "checkbox"})];
+			mi_zoom_n[0].click = (function(mi_zoom_n1,i5) {
 				return function() {
 					if(mi_zoomLevels_h.hasOwnProperty(_gthis.window.zoomLevel)) {
 						mi_zoomLevels_h[_gthis.window.zoomLevel].checked = false;
 					}
-					_gthis.window.zoomLevel = i4[0];
+					_gthis.window.zoomLevel = i5[0];
 					mi_zoom_n1[0].checked = true;
 					_gthis.prefs.zoomLevel = _gthis.window.zoomLevel;
 					_gthis.savePrefs();
 				};
-			})(mi_zoom_n,i3);
+			})(mi_zoom_n,i4);
 			m_zoom.append(mi_zoom_n[0]);
-			mi_zoomLevels_h[i3[0]] = mi_zoom_n[0];
+			mi_zoomLevels_h[i4[0]] = mi_zoom_n[0];
 		}
 		if(mi_zoomLevels_h.hasOwnProperty(this.window.zoomLevel)) {
 			mi_zoomLevels_h[this.window.zoomLevel].checked = true;
@@ -7828,7 +7840,7 @@ Main.prototype = $extend(Model.prototype,{
 			history = true;
 		}
 		Model.prototype.save.call(this,history);
-		console.log("src/Main.hx:2945:","Finish Saving");
+		console.log("src/Main.hx:2955:","Finish Saving");
 	}
 	,nuclearSave: function(history) {
 		if(history == null) {
@@ -9154,9 +9166,9 @@ cdb_Database.prototype = {
 			}
 		}
 	}
-	,saveMonofile: function() {
+	,saveMonofileLegacyFormat: function() {
 		this.prepForSaving();
-		return cdb_Parser.saveMonofile(this.data);
+		return cdb_Parser.saveMonofile(this.data,false,true);
 	}
 	,saveMultifile: function(outPath) {
 		this.prepForSaving();
@@ -11558,8 +11570,15 @@ cdb_MultifileLoadSave.readFile = function(fullPath) {
 		return null;
 	}
 };
-cdb_MultifileLoadSave.getMonoCDB = function(path) {
-	return cdb_Parser.saveMonofile(cdb_Parser.parseFrom(path,false),true);
+cdb_MultifileLoadSave.getMonoCDB = function(path,compact,legacyFormat) {
+	if(legacyFormat == null) {
+		legacyFormat = false;
+	}
+	if(compact == null) {
+		compact = true;
+	}
+	var data = cdb_Parser.parseFrom(path,false);
+	return cdb_Parser.saveMonofile(data,compact,legacyFormat);
 };
 cdb_MultifileLoadSave.parseMultifileContents = function(data,schemaPath) {
 	var basePath = cdb_MultifileLoadSave.getBaseDir(schemaPath);
@@ -11621,7 +11640,7 @@ cdb_MultifileLoadSave.saveMultifileRootSchema = function(data,schemaPath) {
 		}
 	}
 	js_node_Fs.writeFileSync(schemaPath,JSON.stringify(schema,null,"\t"));
-	console.log("cdb/MultifileLoadSave.hx:118:","SCHEMA SAVED!");
+	console.log("cdb/MultifileLoadSave.hx:119:","SCHEMA SAVED!");
 };
 cdb_MultifileLoadSave.getIdField = function(table) {
 	var _g = 0;
@@ -12032,14 +12051,17 @@ cdb_Parser.saveMultifile = function(data,outPath) {
 	cdb_MultifileLoadSave.saveMultifileTableContents(data,outPath);
 	cdb_MultifileLoadSave.saveMultifileRootSchema(data,outPath);
 };
-cdb_Parser.saveMonofile = function(data,compact) {
+cdb_Parser.saveMonofile = function(data,compact,legacyFormat) {
+	if(legacyFormat == null) {
+		legacyFormat = false;
+	}
 	if(compact == null) {
 		compact = false;
 	}
 	var formatBackup = data.format;
-	data.format = null;
 	var save = [];
 	var seps = [];
+	data.format = legacyFormat ? "legacy-monofile" : "ee-monofile";
 	var _g = 0;
 	var _g1 = data.sheets;
 	while(_g < _g1.length) {
@@ -12056,12 +12078,12 @@ cdb_Parser.saveMonofile = function(data,compact) {
 			}
 			save.push(c.type);
 			if(c.typeStr == null) {
-				c.typeStr = cdb_Parser.saveType(c.type,true);
+				c.typeStr = cdb_Parser.saveType(c.type,legacyFormat);
 			}
 			Reflect.deleteField(c,"type");
 		}
 		var oldSeps = null;
-		if(idField != null && s.separators.length > 0) {
+		if(!legacyFormat && idField != null && s.separators.length > 0) {
 			var uniqueIDs = true;
 			var uids = new haxe_ds_StringMap();
 			var _g21 = 0;
@@ -12098,22 +12120,30 @@ cdb_Parser.saveMonofile = function(data,compact) {
 			}
 		}
 		seps.push(oldSeps);
+		if(legacyFormat && s.props.hasIndex) {
+			var _g22 = 0;
+			var _g31 = s.lines.length;
+			while(_g22 < _g31) {
+				var rowIdx = _g22++;
+				s.lines[rowIdx]["index"] = rowIdx;
+			}
+		}
 	}
-	var _g22 = 0;
-	var _g31 = data.customTypes;
-	while(_g22 < _g31.length) {
-		var t = _g31[_g22];
-		++_g22;
-		var _g23 = 0;
-		var _g32 = t.cases;
-		while(_g23 < _g32.length) {
-			var c1 = _g32[_g23];
-			++_g23;
-			var _g24 = 0;
-			var _g33 = c1.args;
-			while(_g24 < _g33.length) {
-				var a = _g33[_g24];
-				++_g24;
+	var _g23 = 0;
+	var _g32 = data.customTypes;
+	while(_g23 < _g32.length) {
+		var t = _g32[_g23];
+		++_g23;
+		var _g24 = 0;
+		var _g33 = t.cases;
+		while(_g24 < _g33.length) {
+			var c1 = _g33[_g24];
+			++_g24;
+			var _g25 = 0;
+			var _g34 = c1.args;
+			while(_g25 < _g34.length) {
+				var a = _g34[_g25];
+				++_g25;
 				save.push(a.type);
 				if(a.typeStr == null) {
 					a.typeStr = cdb_Parser.saveType(a.type);
@@ -12123,6 +12153,7 @@ cdb_Parser.saveMonofile = function(data,compact) {
 		}
 	}
 	var str = JSON.stringify(data,null,compact ? null : "\t");
+	data.format = formatBackup;
 	var _g41 = 0;
 	var _g51 = data.sheets;
 	while(_g41 < _g51.length) {
@@ -12140,27 +12171,35 @@ cdb_Parser.saveMonofile = function(data,compact) {
 			s1.separators = oldSeps1;
 			Reflect.deleteField(s1,"separatorIds");
 		}
+		if(legacyFormat && s1.props.hasIndex) {
+			var _g61 = 0;
+			var _g7 = s1.lines;
+			while(_g61 < _g7.length) {
+				var l1 = _g7[_g61];
+				++_g61;
+				Reflect.deleteField(l1,"index");
+			}
+		}
 	}
-	var _g61 = 0;
-	var _g7 = data.customTypes;
-	while(_g61 < _g7.length) {
-		var t1 = _g7[_g61];
-		++_g61;
-		var _g62 = 0;
-		var _g71 = t1.cases;
-		while(_g62 < _g71.length) {
-			var c3 = _g71[_g62];
-			++_g62;
-			var _g63 = 0;
-			var _g72 = c3.args;
-			while(_g63 < _g72.length) {
-				var a1 = _g72[_g63];
-				++_g63;
+	var _g62 = 0;
+	var _g71 = data.customTypes;
+	while(_g62 < _g71.length) {
+		var t1 = _g71[_g62];
+		++_g62;
+		var _g63 = 0;
+		var _g72 = t1.cases;
+		while(_g63 < _g72.length) {
+			var c3 = _g72[_g63];
+			++_g63;
+			var _g64 = 0;
+			var _g73 = c3.args;
+			while(_g64 < _g73.length) {
+				var a1 = _g73[_g64];
+				++_g64;
 				a1.type = save.shift();
 			}
 		}
 	}
-	data.format = formatBackup;
 	return str;
 };
 var cdb_Sheet = function(base,sheet,path,parent) {

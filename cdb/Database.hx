@@ -291,9 +291,9 @@ class Database {
 		}
 	}
 
-	public function saveMonofile() : String {
+	public function saveMonofileLegacyFormat() : String {
 		prepForSaving();
-		return cdb.Parser.saveMonofile(data);
+		return cdb.Parser.saveMonofile(data, false, true);
 	}
 
 	public function saveMultifile(outPath : String) : Void {

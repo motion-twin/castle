@@ -162,23 +162,34 @@ class Parser {
 		MultifileLoadSave.saveMultifileRootSchema(data, outPath);
 	}
 
-	public static function saveMonofile( data : Data, compact : Bool = false ) : String {
+	public static function saveMonofile(
+		data : Data,
+		compact : Bool = false,
+		legacyFormat : Bool = false ) : String
+	{
 		var formatBackup = data.format;
-		data.format = null;
 		var save = [];
 		var seps = [];
+		
+		// --------------------------------------------------------------------
+		// 1. Pre-process tables and types before serialization
+
+		data.format = legacyFormat ? "legacy-monofile" : "ee-monofile";
+
 		for( s in data.sheets ) {
 			var idField = null;
 			for( c in s.columns ) {
 				if( c.type == TId && idField == null ) idField = c.name;
 				save.push(c.type);
 				if( c.typeStr == null )
-					c.typeStr = cdb.Parser.saveType(c.type, true); // use LEGACY type names for monofile CDB to preserve compat with modding tools in the wild
+					c.typeStr = cdb.Parser.saveType(c.type, legacyFormat);
 				Reflect.deleteField(c, "type");
 			}
+
 			// remap separators based on indexes
+			// (only if we don't care about maintaining compatibility with legacy format)
 			var oldSeps = null;
-			if( idField != null && s.separators.length > 0 ) {
+			if( !legacyFormat && idField != null && s.separators.length > 0 ) {
 				var uniqueIDs = true;
 				var uids = new Map();
 				for( l in s.lines ) {
@@ -201,29 +212,63 @@ class Parser {
 				}
 			}
 			seps.push(oldSeps);
+
+			// Legacy format compat: 
+			if (legacyFormat && s.props.hasIndex) {
+				for (rowIdx in 0...s.lines.length) {
+					Reflect.setField(s.lines[rowIdx], "index", rowIdx);
+				}
+			}
 		}
-		for( t in data.customTypes )
-			for( c in t.cases )
+
+		for( t in data.customTypes ) {
+			for( c in t.cases ) {
 				for( a in c.args ) {
 					save.push(a.type);
 					if( a.typeStr == null ) a.typeStr = cdb.Parser.saveType(a.type);
 					Reflect.deleteField(a, "type");
 				}
+			}
+		}
+		
+		// --------------------------------------------------------------------
+		// 2. Serialize
+
 		var str = haxe.Json.stringify(data, null, compact ? null : "\t");
+
+		// --------------------------------------------------------------------
+		// 3. Restore table/type attributes modified in step 1
+
+		data.format = formatBackup;
+
 		for( s in data.sheets ) {
-			for( c in s.columns )
+			for( c in s.columns ) {
 				c.type = save.shift();
+			}
+			
 			var oldSeps = seps.shift();
 			if( oldSeps != null ) {
 				s.separators = oldSeps;
 				Reflect.deleteField(s,"separatorIds");
 			}
+
+			if (legacyFormat && s.props.hasIndex) {
+				for (l in s.lines) {
+					Reflect.deleteField(l, "index");
+				}
+			}
 		}
-		for( t in data.customTypes )
-			for( c in t.cases )
-				for( a in c.args )
+
+		for( t in data.customTypes ) {
+			for( c in t.cases ) {
+				for( a in c.args ) {
 					a.type = save.shift();
-		data.format = formatBackup;
+				}
+			}
+		}
+
+		// --------------------------------------------------------------------
+
 		return str;
 	}
 

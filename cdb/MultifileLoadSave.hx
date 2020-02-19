@@ -40,8 +40,9 @@ class MultifileLoadSave {
 	}
 #end
 
-	public static function getMonoCDB(path : String) : String {
-		return Parser.saveMonofile(Parser.parseFrom(path, false), true);
+	public static function getMonoCDB(path : String, compact: Bool = true, legacyFormat: Bool = false) : String {
+		var data = Parser.parseFrom(path, false);
+		return Parser.saveMonofile(data, compact, legacyFormat);
 	}
 
 	public static function parseMultifileContents(data : Data, schemaPath : String) {

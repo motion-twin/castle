@@ -567,6 +567,10 @@ class Module {
 					root = cdb.Parser.parseFrom(path, false);
 					{$a{assigns}};
 				}
+				public static function loadJson( json : String, allowReload = false ) {
+					root = cdb.Parser.parseJson(json, false);
+					{$a{assigns}};
+				}
 			}).fields.concat(fields),
 		});
 		var mpath = Context.getLocalModule();

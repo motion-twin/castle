@@ -86,7 +86,7 @@ class OperationStack {
 
 	private function checkSavePoint() {
 		if (savePoint != cursor) {
-			context.window.title = "[*] CastleDB";
+			context.window.title = "[*] CastleDB: " + context.prefs.curFile;
 			if (unsavedCSSLinkTag == null) {
 				unsavedCSSLinkTag = js.Browser.document.createLinkElement();
 				unsavedCSSLinkTag.rel = "stylesheet";
@@ -96,7 +96,7 @@ class OperationStack {
 			}
 		}
 		else {
-			context.window.title = "CastleDB";
+			context.window.title = "CastleDB: " + context.prefs.curFile;
 			if (unsavedCSSLinkTag != null) {
 				js.Browser.document.body.removeChild(unsavedCSSLinkTag);
 				unsavedCSSLinkTag = null;

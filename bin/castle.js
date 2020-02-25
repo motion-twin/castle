@@ -3855,6 +3855,7 @@ Model.prototype = {
 			var e2 = ((e1) instanceof js__$Boot_HaxeError) ? e1.val : e1;
 			this.imageBank = null;
 		}
+		this.opStack.setSavePointHere();
 	}
 	,cleanImages: function() {
 		if(this.imageBank == null) {
@@ -6931,7 +6932,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2264:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2263:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -6940,7 +6941,7 @@ Main.prototype = $extend(Model.prototype,{
 		if(manual == null) {
 			manual = true;
 		}
-		console.log("src/Main.hx:2269:","selectSheet " + s.sheet.name);
+		console.log("src/Main.hx:2268:","selectSheet " + s.sheet.name);
 		this.viewSheet = s;
 		this.pages.curPage = -1;
 		var key = s.sheet.name;
@@ -7749,7 +7750,7 @@ Main.prototype = $extend(Model.prototype,{
 			i3.appendTo($("body"));
 			i3.click();
 		};
-		console.log("src/Main.hx:2872:",this.prefs.zoomLevel);
+		console.log("src/Main.hx:2871:",this.prefs.zoomLevel);
 		this.window.zoomLevel = this.prefs.zoomLevel;
 		var mi_zoom = new js_node_webkit_MenuItem({ label : "Zoom"});
 		var m_zoom = new js_node_webkit_Menu();
@@ -7840,7 +7841,7 @@ Main.prototype = $extend(Model.prototype,{
 			history = true;
 		}
 		Model.prototype.save.call(this,history);
-		console.log("src/Main.hx:2955:","Finish Saving");
+		console.log("src/Main.hx:2954:","Finish Saving");
 	}
 	,nuclearSave: function(history) {
 		if(history == null) {
@@ -7915,7 +7916,7 @@ OperationStack.prototype = {
 	}
 	,checkSavePoint: function() {
 		if(this.savePoint != this.cursor) {
-			this.context.window.title = "[*] CastleDB";
+			this.context.window.title = "[*] CastleDB: " + this.context.prefs.curFile;
 			if(this.unsavedCSSLinkTag == null) {
 				this.unsavedCSSLinkTag = window.document.createElement("link");
 				this.unsavedCSSLinkTag.rel = "stylesheet";
@@ -7924,7 +7925,7 @@ OperationStack.prototype = {
 				window.document.body.appendChild(this.unsavedCSSLinkTag);
 			}
 		} else {
-			this.context.window.title = "CastleDB";
+			this.context.window.title = "CastleDB: " + this.context.prefs.curFile;
 			if(this.unsavedCSSLinkTag != null) {
 				window.document.body.removeChild(this.unsavedCSSLinkTag);
 				this.unsavedCSSLinkTag = null;
@@ -12421,7 +12422,7 @@ cdb_Sheet.prototype = {
 		if(this.sheet == null || delta == 0) {
 			return null;
 		}
-		if(delta < 0 && index > 0) {
+		if(delta < 0) {
 			var _g = 0;
 			var _g1 = this.sheet.separators.length;
 			while(_g < _g1) {
@@ -12432,6 +12433,9 @@ cdb_Sheet.prototype = {
 					opStack.push(new ops_SeparatorMove(this,i1,this.sheet.separators[i1] + 1));
 					return index;
 				}
+			}
+			if(index <= 0) {
+				return null;
 			}
 		} else if(delta > 0) {
 			var _g2 = 0;

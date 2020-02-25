@@ -26,7 +26,7 @@ typedef Prefs = {
 class Model {
 
 	public var base : cdb.Database;
-	var prefs : Prefs;
+	public var prefs : Prefs;
 	var imageBank : Dynamic<String>;
 	public var openedList : Map<String,Bool>;
 	var existsCache : Map<String,{ t : Float, r : Bool }>;
@@ -140,6 +140,7 @@ class Model {
 		} catch( e : Dynamic ) {
 			imageBank = null;
 		}
+		opStack.setSavePointHere();
 	}
 
 	function cleanImages() {

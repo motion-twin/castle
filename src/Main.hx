@@ -866,7 +866,7 @@ save();
 			}
 		case TList:
 			var a : Array<Dynamic> = v;
-			/*
+			#if 1
 			var ps = sheet.getSub(c);
 			var out : Array<String> = [];
 			var size = 0;
@@ -896,8 +896,9 @@ save();
 			if( out.length == 0 )
 				return "";
 			return out.join(", ");
-			*/
+			#else
 			return '<span class="array-shortened">List (</span>${a.length}<span class="array-shortened">)</span>';
+			#end
 		case TProperties:
 			var ps = sheet.getSub(c);
 			var out = [];

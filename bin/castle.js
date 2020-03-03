@@ -4848,7 +4848,47 @@ Main.prototype = $extend(Model.prototype,{
 			break;
 		case 8:
 			var a = v;
-			return "<span class=\"array-shortened\">List (</span>" + a.length + "<span class=\"array-shortened\">)</span>";
+			var ps = sheet.base.getSheet(sheet.sheet.name + "@" + c.name);
+			var out = [];
+			var size = 0;
+			var _g2 = 0;
+			while(_g2 < a.length) {
+				var v1 = a[_g2];
+				++_g2;
+				var vals = [];
+				var _g3 = 0;
+				var _g11 = ps.sheet.columns;
+				while(_g3 < _g11.length) {
+					var c1 = _g11[_g3];
+					++_g3;
+					switch(c1.type._hx_index) {
+					case 8:case 17:
+						continue;
+					default:
+						vals.push(this.valueHtml(c1,Reflect.field(v1,c1.name),ps,v1));
+					}
+				}
+				var v2 = vals.length == 1 ? vals[0] : "" + Std.string(vals);
+				if(size > 500) {
+					out.push("...");
+					break;
+				}
+				var vstr = v2;
+				if(v2.indexOf("<") >= 0) {
+					var _this_r = new RegExp("<img src=\"[^\"]+\" style=\"display:none\"[^>]+>","g".split("u").join(""));
+					vstr = vstr.replace(_this_r,"");
+					var _this_r1 = new RegExp("<img src=\"[^\"]+\"/>","g".split("u").join(""));
+					vstr = vstr.replace(_this_r1,"[I]");
+					var _this_r2 = new RegExp("<div id=\"[^>]+></div>","g".split("u").join(""));
+					vstr = vstr.replace(_this_r2,"[D]");
+				}
+				size += vstr.length;
+				out.push(v2);
+			}
+			if(out.length == 0) {
+				return "";
+			}
+			return out.join(", ");
 		case 9:
 			var name = _g.name;
 			var t = this.base.getCustomType(name);
@@ -4857,27 +4897,27 @@ Main.prototype = $extend(Model.prototype,{
 			var str = cas.name;
 			if(cas.args.length > 0) {
 				str += "(";
-				var out = [];
+				var out1 = [];
 				var pos = 1;
-				var _g2 = 1;
-				var _g11 = a1.length;
-				while(_g2 < _g11) {
-					var i1 = _g2++;
-					out.push(this.valueHtml(cas.args[i1 - 1],a1[i1],sheet,this));
+				var _g4 = 1;
+				var _g12 = a1.length;
+				while(_g4 < _g12) {
+					var i1 = _g4++;
+					out1.push(this.valueHtml(cas.args[i1 - 1],a1[i1],sheet,this));
 				}
-				str += out.join(",");
+				str += out1.join(",");
 				str += ")";
 			}
 			return str;
 		case 10:
 			var values1 = _g.values;
-			var v1 = v;
+			var v3 = v;
 			var flags = [];
-			var _g3 = 0;
-			var _g12 = values1.length;
-			while(_g3 < _g12) {
-				var i2 = _g3++;
-				if((v1 & 1 << i2) != 0) {
+			var _g5 = 0;
+			var _g13 = values1.length;
+			while(_g5 < _g13) {
+				var i2 = _g5++;
+				if((v3 & 1 << i2) != 0) {
 					flags.push(StringTools.htmlEscape(values1[i2]));
 				}
 			}
@@ -4891,7 +4931,7 @@ Main.prototype = $extend(Model.prototype,{
 			var id = Main.UID++;
 			return "<div class=\"color\" style=\"background-color:#" + StringTools.hex(v,6) + "\"></div>";
 		case 12:
-			var _g5 = _g.type;
+			var _g51 = _g.type;
 			if(v == "–") {
 				return "&nbsp;";
 			} else {
@@ -4916,10 +4956,10 @@ Main.prototype = $extend(Model.prototype,{
 		case 14:
 			return this.tileHtml(v);
 		case 15:
-			var v2 = v;
-			var path1 = this.getAbsPath(v2.file);
+			var v4 = v;
+			var path1 = this.getAbsPath(v4.file);
 			if(!this.quickExists(path1)) {
-				return "<span class=\"error\">" + v2.file + "</span>";
+				return "<span class=\"error\">" + v4.file + "</span>";
 			} else {
 				return "#DATA";
 			}
@@ -4931,20 +4971,20 @@ Main.prototype = $extend(Model.prototype,{
 			}
 			return str1;
 		case 17:
-			var ps = sheet.base.getSheet(sheet.sheet.name + "@" + c.name);
-			var out1 = [];
-			var _g4 = 0;
-			var _g13 = ps.sheet.columns;
-			while(_g4 < _g13.length) {
-				var c1 = _g13[_g4];
-				++_g4;
-				var pval = Reflect.field(v,c1.name);
-				if(pval == null && c1.opt) {
+			var ps1 = sheet.base.getSheet(sheet.sheet.name + "@" + c.name);
+			var out2 = [];
+			var _g6 = 0;
+			var _g14 = ps1.sheet.columns;
+			while(_g6 < _g14.length) {
+				var c2 = _g14[_g6];
+				++_g6;
+				var pval = Reflect.field(v,c2.name);
+				if(pval == null && c2.opt) {
 					continue;
 				}
-				out1.push("<span class='propName'>" + c1.name + "</span> <span class='propVal'>" + this.valueHtml(c1,pval,ps,v) + "</span>");
+				out2.push("<span class='propName'>" + c2.name + "</span> <span class='propVal'>" + this.valueHtml(c2,pval,ps1,v) + "</span>");
 			}
-			return out1.join("<br/>");
+			return out2.join("<br/>");
 		}
 	}
 	,popupLine: function(sheet,index) {
@@ -5321,7 +5361,7 @@ Main.prototype = $extend(Model.prototype,{
 			v.removeClass("edit");
 			_gthis.setErrorMessage();
 			if(rowModifyOp.isUseless()) {
-				console.log("src/Main.hx:1251:","last operation was useless");
+				console.log("src/Main.hx:1252:","last operation was useless");
 				_gthis.opStack.removeLastOp(rowModifyOp);
 			}
 		};
@@ -6025,7 +6065,7 @@ Main.prototype = $extend(Model.prototype,{
 		}
 	}
 	,refresh: function() {
-		console.log("src/Main.hx:1634:","Refresh...");
+		console.log("src/Main.hx:1635:","Refresh...");
 		var content = $("#content");
 		content.empty();
 		var t = $("<table>");
@@ -6037,7 +6077,7 @@ Main.prototype = $extend(Model.prototype,{
 		t.appendTo(content);
 		$("<div>").appendTo(content).addClass("tableBottom");
 		this.updateCursor();
-		console.log("src/Main.hx:1646:","Refresh finished.");
+		console.log("src/Main.hx:1647:","Refresh finished.");
 	}
 	,makeRelativePath: function(path) {
 		if(this.prefs.curFile == null) {
@@ -6932,7 +6972,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2263:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2264:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -6941,7 +6981,7 @@ Main.prototype = $extend(Model.prototype,{
 		if(manual == null) {
 			manual = true;
 		}
-		console.log("src/Main.hx:2268:","selectSheet " + s.sheet.name);
+		console.log("src/Main.hx:2269:","selectSheet " + s.sheet.name);
 		this.viewSheet = s;
 		this.pages.curPage = -1;
 		var key = s.sheet.name;
@@ -7750,7 +7790,7 @@ Main.prototype = $extend(Model.prototype,{
 			i3.appendTo($("body"));
 			i3.click();
 		};
-		console.log("src/Main.hx:2871:",this.prefs.zoomLevel);
+		console.log("src/Main.hx:2872:",this.prefs.zoomLevel);
 		this.window.zoomLevel = this.prefs.zoomLevel;
 		var mi_zoom = new js_node_webkit_MenuItem({ label : "Zoom"});
 		var m_zoom = new js_node_webkit_Menu();
@@ -7841,7 +7881,7 @@ Main.prototype = $extend(Model.prototype,{
 			history = true;
 		}
 		Model.prototype.save.call(this,history);
-		console.log("src/Main.hx:2954:","Finish Saving");
+		console.log("src/Main.hx:2955:","Finish Saving");
 	}
 	,nuclearSave: function(history) {
 		if(history == null) {

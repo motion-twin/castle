@@ -157,7 +157,6 @@ class Parser {
 	}
 
 	public static function saveMultifile( data : Data, outPath : String ) {
-		MultifileLoadSave.nukeContentFiles(outPath);
 		MultifileLoadSave.saveMultifileTableContents(data, outPath);
 		MultifileLoadSave.saveMultifileRootSchema(data, outPath);
 	}

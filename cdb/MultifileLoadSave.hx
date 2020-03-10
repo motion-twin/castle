@@ -6,6 +6,11 @@ import sys.io.File;
 import cdb.Data.SheetData;
 
 class MultifileLoadSave {
+
+#if EDITOR
+	private static var lastStateOnDisk : Map<String, String> = new Map<String, String>();
+	private static var saveStateOnDisk : Map<String, String> = null;
+#end
 	
 	public static var MULTIFILE_CDB_DIR = "cdb";
 	public static var MULTIFILE_FORMAT = "ee-multifile";
@@ -34,9 +39,13 @@ class MultifileLoadSave {
 	}
 
 	public static function readFile(fullPath : String) : String {
-		return sys.FileSystem.exists(fullPath)
+		var contents = sys.FileSystem.exists(fullPath)
 			? sys.io.File.getContent(fullPath)
 			: null;
+#if EDITOR
+		lastStateOnDisk.set(fullPath, contents);
+#end
+		return contents;
 	}
 #end
 
@@ -46,6 +55,10 @@ class MultifileLoadSave {
 	}
 
 	public static function parseMultifileContents(data : Data, schemaPath : String) {
+#if EDITOR
+		lastStateOnDisk.clear();
+#end
+
 		var basePath = getBaseDir(schemaPath);
 
 		for (table in data.sheets) {
@@ -84,6 +97,7 @@ class MultifileLoadSave {
 		}
 	}
 
+#if EDITOR
 	public static function saveMultifileRootSchema(data: Data, schemaPath: String) {
 		var schema : Data = {
 			format : MULTIFILE_FORMAT,
@@ -116,7 +130,6 @@ class MultifileLoadSave {
 		}
 
 		sys.io.File.saveContent(schemaPath, haxe.Json.stringify(schema, null, "\t"));
-		trace("SCHEMA SAVED!");
 	}
 
 	private static function getIdField(table: SheetData) {
@@ -136,11 +149,11 @@ class MultifileLoadSave {
 		return null;
 	}
 
-	public static function nukeContentFiles(schemaPath : String) {
+	// Delete any files/directories under MULTIFILE_CDB_DIR
+	// that aren't keys in saveStateOnDisk.
+	public static function nukeZombieFiles(data : Database, schemaPath : String)
+	{
 		var baseDir = MultifileLoadSave.getBaseDir(schemaPath);
-
-		if (!FileSystem.exists(baseDir))
-			return;
 
 		var frontier = [baseDir];
 		var frontierPos = 0;
@@ -150,28 +163,40 @@ class MultifileLoadSave {
 			var dir = frontier[frontierPos];
 			frontierPos++;
 
+			var fileCount = 0;
+
 			for (file in FileSystem.readDirectory(dir)) {
 				var path = Path.join([dir, file]);
-				if (!FileSystem.isDirectory(path)) {
-					FileSystem.deleteFile(path);
-				} else {
+				if (FileSystem.isDirectory(path)) {
 					var subdir = Path.addTrailingSlash(path);
 					frontier.push(subdir);
+				} else if (!lastStateOnDisk.exists(path)) {
+					trace("Nuke file: " + path);
+					FileSystem.deleteFile(path);
 				}
 			}
 		}
 
 		// pass 2: delete directories
 		while (frontier.length > 0) {
-			FileSystem.deleteDirectory(frontier.pop());
+			var dir = frontier.pop();
+			if (FileSystem.readDirectory(dir).length == 0) {
+				trace("Nuke dir: " + dir);
+				FileSystem.deleteDirectory(dir);
+			}
 		}
 	}
 
 	public static function saveMultifileTableContents(data: Data, schemaPath : String)
 	{
+		saveStateOnDisk = new Map<String, String>();
+
 		for (table in data.sheets) {
 			_saveTable(table, schemaPath);
 		}
+
+		lastStateOnDisk = saveStateOnDisk;
+		saveStateOnDisk = null;
 	}
 
 	private static function _saveTable(table: SheetData, schemaPath: String)
@@ -212,7 +237,9 @@ class MultifileLoadSave {
 					sepIdx = newSepIdx;
 					sepTitle = table.props.separatorTitles[sepIdx];
 					if (sepTitle == "") sepTitle = "__UntitledSeparator" + sepIdx;
-					sys.FileSystem.createDirectory(tablePath + "/" + sepTitle);
+					var dirPath = tablePath + "/" + sepTitle;
+					if (!sys.FileSystem.exists(dirPath))
+						sys.FileSystem.createDirectory(dirPath);
 				}
 			}
 
@@ -225,10 +252,23 @@ class MultifileLoadSave {
 
 			// Save row file
 			var rowpath = tablePath + "/" + rowname + ".row";
-			sys.io.File.saveContent(rowpath, haxe.Json.stringify(row, null, "\t"));	
+
+			writeIfDiff(rowpath, haxe.Json.stringify(row, null, "\t"));
 		}
 
 		// Save index
-		sys.io.File.saveContent(tablePath + "/_table.index", haxe.Json.stringify(tableIndex, null, "\t"));
+		writeIfDiff(tablePath + "/_table.index", haxe.Json.stringify(tableIndex, null, "\t"));
 	}
+
+	// Write string to file if absent or different from lastStateOnDisk
+	private static function writeIfDiff(path : String, contents : String) {
+		saveStateOnDisk.set(path, contents);
+
+		if (lastStateOnDisk.get(path) == contents) {
+			return;
+		}
+
+		sys.io.File.saveContent(path, contents);
+	}
+#end
 }

@@ -3793,16 +3793,25 @@ Model.prototype = {
 		if(this.prefs.curFile == null) {
 			return;
 		}
-		console.log("src/Model.hx:85:","full save");
 		window.document.querySelector("#now-saving-text").className = "";
 		window.setTimeout(function() {
-			if(_gthis.base.get_isMultifile()) {
-				_gthis.base.saveMultifile(_gthis.prefs.curFile);
-			} else {
-				js_node_Fs.writeFileSync(_gthis.prefs.curFile,_gthis.base.saveMonofileLegacyFormat());
+			var success = false;
+			try {
+				if(_gthis.base.get_isMultifile()) {
+					_gthis.base.saveMultifile(_gthis.prefs.curFile);
+				} else {
+					js_node_Fs.writeFileSync(_gthis.prefs.curFile,_gthis.base.saveMonofileLegacyFormat());
+				}
+				success = true;
+			} catch( err ) {
+				var err1 = ((err) instanceof js__$Boot_HaxeError) ? err.val : err;
+				console.log("src/Model.hx:99:",err1);
+				window.alert(Std.string("An error occurred while saving:\n\n" + Std.string(err1)));
 			}
 			window.setTimeout(function() {
-				_gthis.opStack.setSavePointHere();
+				if(success) {
+					_gthis.opStack.setSavePointHere();
+				}
 				window.document.querySelector("#now-saving-text").className = "no-display";
 			});
 		});
@@ -5969,7 +5978,7 @@ Main.prototype = $extend(Model.prototype,{
 			var id = Std.random(1);
 			v.html("<div class=\"modal\" onclick=\"$('#_c" + id + "').spectrum('toggle')\"></div><input type=\"text\" id=\"_c" + id + "\"/>");
 			var spect = $("#_c" + id);
-			spect.spectrum({ color : "#" + StringTools.hex(val,6), showInput : true, showButtons : false, change : function() {
+			spect.spectrum({ color : "#" + StringTools.hex(val,6), showInput : true, showButtons : true, change : function() {
 				spect.spectrum("hide");
 			}, hide : function(vcol) {
 				var color = Std.parseInt("0x" + Std.string(vcol.toHex()));
@@ -11605,11 +11614,14 @@ cdb_MultifileLoadSave.getBaseDir = function(schemaPath) {
 	}
 };
 cdb_MultifileLoadSave.readFile = function(fullPath) {
-	if(sys_FileSystem.exists(fullPath)) {
-		return js_node_Fs.readFileSync(fullPath,{ encoding : "utf8"});
+	var contents = sys_FileSystem.exists(fullPath) ? js_node_Fs.readFileSync(fullPath,{ encoding : "utf8"}) : null;
+	var _this = cdb_MultifileLoadSave.lastStateOnDisk;
+	if(__map_reserved[fullPath] != null) {
+		_this.setReserved(fullPath,contents);
 	} else {
-		return null;
+		_this.h[fullPath] = contents;
 	}
+	return contents;
 };
 cdb_MultifileLoadSave.getMonoCDB = function(path,compact,legacyFormat) {
 	if(legacyFormat == null) {
@@ -11622,6 +11634,9 @@ cdb_MultifileLoadSave.getMonoCDB = function(path,compact,legacyFormat) {
 	return cdb_Parser.saveMonofile(data,compact,legacyFormat);
 };
 cdb_MultifileLoadSave.parseMultifileContents = function(data,schemaPath) {
+	var _this = cdb_MultifileLoadSave.lastStateOnDisk;
+	_this.h = { };
+	_this.rh = null;
 	var basePath = cdb_MultifileLoadSave.getBaseDir(schemaPath);
 	var _g = 0;
 	var _g1 = data.sheets;
@@ -11681,7 +11696,6 @@ cdb_MultifileLoadSave.saveMultifileRootSchema = function(data,schemaPath) {
 		}
 	}
 	js_node_Fs.writeFileSync(schemaPath,JSON.stringify(schema,null,"\t"));
-	console.log("cdb/MultifileLoadSave.hx:119:","SCHEMA SAVED!");
 };
 cdb_MultifileLoadSave.getIdField = function(table) {
 	var _g = 0;
@@ -11711,64 +11725,70 @@ cdb_MultifileLoadSave.getIdField = function(table) {
 	}
 	return null;
 };
-cdb_MultifileLoadSave.nukeContentFiles = function(schemaPath) {
+cdb_MultifileLoadSave.nukeZombieFiles = function(data,schemaPath) {
 	var baseDir = cdb_MultifileLoadSave.getBaseDir(schemaPath);
-	if(!sys_FileSystem.exists(baseDir)) {
-		return;
-	}
 	var frontier = [baseDir];
 	var frontierPos = 0;
 	while(frontierPos < frontier.length) {
 		var dir = frontier[frontierPos];
 		++frontierPos;
+		var fileCount = 0;
 		var _g = 0;
 		var _g1 = js_node_Fs.readdirSync(dir);
 		while(_g < _g1.length) {
 			var file = _g1[_g];
 			++_g;
 			var path = haxe_io_Path.join([dir,file]);
-			if(!sys_FileSystem.isDirectory(path)) {
-				js_node_Fs.unlinkSync(path);
-			} else {
+			if(sys_FileSystem.isDirectory(path)) {
 				var subdir = haxe_io_Path.addTrailingSlash(path);
 				frontier.push(subdir);
+			} else {
+				var _this = cdb_MultifileLoadSave.lastStateOnDisk;
+				if(!(__map_reserved[path] != null ? _this.existsReserved(path) : _this.h.hasOwnProperty(path))) {
+					console.log("cdb/MultifileLoadSave.hx:174:","Nuke file: " + path);
+					js_node_Fs.unlinkSync(path);
+				}
 			}
 		}
 	}
 	while(frontier.length > 0) {
-		var path1 = frontier.pop();
-		if(sys_FileSystem.exists(path1)) {
-			var _g2 = 0;
-			var _g11 = js_node_Fs.readdirSync(path1);
-			while(_g2 < _g11.length) {
-				var file1 = _g11[_g2];
-				++_g2;
-				var curPath = path1 + "/" + file1;
-				if(sys_FileSystem.isDirectory(curPath)) {
-					if(sys_FileSystem.exists(curPath)) {
-						var _g3 = 0;
-						var _g12 = js_node_Fs.readdirSync(curPath);
-						while(_g3 < _g12.length) {
-							var file2 = _g12[_g3];
-							++_g3;
-							var curPath1 = curPath + "/" + file2;
-							if(sys_FileSystem.isDirectory(curPath1)) {
-								sys_FileSystem.deleteDirectory(curPath1);
-							} else {
-								js_node_Fs.unlinkSync(curPath1);
+		var dir1 = frontier.pop();
+		if(js_node_Fs.readdirSync(dir1).length == 0) {
+			console.log("cdb/MultifileLoadSave.hx:184:","Nuke dir: " + dir1);
+			if(sys_FileSystem.exists(dir1)) {
+				var _g2 = 0;
+				var _g11 = js_node_Fs.readdirSync(dir1);
+				while(_g2 < _g11.length) {
+					var file1 = _g11[_g2];
+					++_g2;
+					var curPath = dir1 + "/" + file1;
+					if(sys_FileSystem.isDirectory(curPath)) {
+						if(sys_FileSystem.exists(curPath)) {
+							var _g3 = 0;
+							var _g12 = js_node_Fs.readdirSync(curPath);
+							while(_g3 < _g12.length) {
+								var file2 = _g12[_g3];
+								++_g3;
+								var curPath1 = curPath + "/" + file2;
+								if(sys_FileSystem.isDirectory(curPath1)) {
+									sys_FileSystem.deleteDirectory(curPath1);
+								} else {
+									js_node_Fs.unlinkSync(curPath1);
+								}
 							}
+							js_node_Fs.rmdirSync(curPath);
 						}
-						js_node_Fs.rmdirSync(curPath);
+					} else {
+						js_node_Fs.unlinkSync(curPath);
 					}
-				} else {
-					js_node_Fs.unlinkSync(curPath);
 				}
+				js_node_Fs.rmdirSync(dir1);
 			}
-			js_node_Fs.rmdirSync(path1);
 		}
 	}
 };
 cdb_MultifileLoadSave.saveMultifileTableContents = function(data,schemaPath) {
+	cdb_MultifileLoadSave.saveStateOnDisk = new haxe_ds_StringMap();
 	var _g = 0;
 	var _g1 = data.sheets;
 	while(_g < _g1.length) {
@@ -11776,6 +11796,8 @@ cdb_MultifileLoadSave.saveMultifileTableContents = function(data,schemaPath) {
 		++_g;
 		cdb_MultifileLoadSave._saveTable(table,schemaPath);
 	}
+	cdb_MultifileLoadSave.lastStateOnDisk = cdb_MultifileLoadSave.saveStateOnDisk;
+	cdb_MultifileLoadSave.saveStateOnDisk = null;
 };
 cdb_MultifileLoadSave._saveTable = function(table,schemaPath) {
 	if(table.lines.length == 0) {
@@ -11816,7 +11838,10 @@ cdb_MultifileLoadSave._saveTable = function(table,schemaPath) {
 				if(sepTitle == "") {
 					sepTitle = "__UntitledSeparator" + sepIdx;
 				}
-				sys_FileSystem.createDirectory(tablePath + "/" + sepTitle);
+				var dirPath = tablePath + "/" + sepTitle;
+				if(!sys_FileSystem.exists(dirPath)) {
+					sys_FileSystem.createDirectory(dirPath);
+				}
 			}
 		}
 		if(sepTitle != null) {
@@ -11824,9 +11849,22 @@ cdb_MultifileLoadSave._saveTable = function(table,schemaPath) {
 		}
 		tableIndex.push(rowname);
 		var rowpath = tablePath + "/" + rowname + ".row";
-		js_node_Fs.writeFileSync(rowpath,JSON.stringify(row,null,"\t"));
+		cdb_MultifileLoadSave.writeIfDiff(rowpath,JSON.stringify(row,null,"\t"));
 	}
-	js_node_Fs.writeFileSync(tablePath + "/_table.index",JSON.stringify(tableIndex,null,"\t"));
+	cdb_MultifileLoadSave.writeIfDiff(tablePath + "/_table.index",JSON.stringify(tableIndex,null,"\t"));
+};
+cdb_MultifileLoadSave.writeIfDiff = function(path,contents) {
+	var _this = cdb_MultifileLoadSave.saveStateOnDisk;
+	if(__map_reserved[path] != null) {
+		_this.setReserved(path,contents);
+	} else {
+		_this.h[path] = contents;
+	}
+	var _this1 = cdb_MultifileLoadSave.lastStateOnDisk;
+	if((__map_reserved[path] != null ? _this1.getReserved(path) : _this1.h[path]) == contents) {
+		return;
+	}
+	js_node_Fs.writeFileSync(path,contents);
 };
 var cdb_Parser = function() { };
 $hxClasses["cdb.Parser"] = cdb_Parser;
@@ -12088,7 +12126,6 @@ cdb_Parser.postProcessParsedData = function(data,editMode) {
 	return data;
 };
 cdb_Parser.saveMultifile = function(data,outPath) {
-	cdb_MultifileLoadSave.nukeContentFiles(outPath);
 	cdb_MultifileLoadSave.saveMultifileTableContents(data,outPath);
 	cdb_MultifileLoadSave.saveMultifileRootSchema(data,outPath);
 };
@@ -24041,6 +24078,7 @@ cdb__$Data_TileMode_$Impl_$.Ground = "ground";
 cdb__$Data_TileMode_$Impl_$.Border = "border";
 cdb__$Data_TileMode_$Impl_$.Object = "object";
 cdb__$Data_TileMode_$Impl_$.Group = "group";
+cdb_MultifileLoadSave.lastStateOnDisk = new haxe_ds_StringMap();
 cdb_MultifileLoadSave.MULTIFILE_CDB_DIR = "cdb";
 cdb_MultifileLoadSave.MULTIFILE_FORMAT = "ee-multifile";
 haxe_Serializer.USE_CACHE = false;

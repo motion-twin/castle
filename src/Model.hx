@@ -82,17 +82,28 @@ class Model {
 	public function save( history = true ) {
 		if( prefs.curFile == null )
 			return;
-		trace("full save");
+
 		js.Browser.document.querySelector("#now-saving-text").className  = "";
 		js.Browser.window.setTimeout(function() {
-			if (base.isMultifile) {
-				base.saveMultifile(prefs.curFile);
-			} else {
-				sys.io.File.saveContent(prefs.curFile, base.saveMonofileLegacyFormat());
+			var success = false;
+
+			try {
+				if (base.isMultifile) {
+					base.saveMultifile(prefs.curFile);
+				} else {
+					sys.io.File.saveContent(prefs.curFile, base.saveMonofileLegacyFormat());
+				}
+
+				success = true;
+			} catch (err: Dynamic) {
+				trace(err);
+				js.Browser.alert("An error occurred while saving:\n\n" + err);
 			}
 
 			js.Browser.window.setTimeout(function() {
-				opStack.setSavePointHere();
+				if (success) {
+					opStack.setSavePointHere();
+				}
 				js.Browser.document.querySelector("#now-saving-text").className = "no-display";
 			});
 		});

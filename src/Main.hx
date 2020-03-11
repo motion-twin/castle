@@ -966,13 +966,15 @@ save();
 
 	function popupLine( sheet : Sheet, index : Int ) {
 		var n = new Menu();
+		var ___ = new MenuItem({type: separator});
 		var nup = new MenuItem( { label : "Move Up" } );
 		var ndown = new MenuItem( { label : "Move Down" } );
-		var nins = new MenuItem( { label : "Insert" } );
+		var nsetidx = new MenuItem( { label: "Move To Index..."} );
+		var nins = new MenuItem( { label : "Insert Below" } );
 		var ndel = new MenuItem( { label : "Delete" } );
-		var nsep = new MenuItem( { label : "Separator", type : MenuItemType.checkbox } );
+		var nsep = new MenuItem( { label : "New Separator Above", type : MenuItemType.checkbox } );
 		var nref = new MenuItem( { label : "Show References" } );
-		for( m in [nup, ndown, nins, ndel, nsep, nref] )
+		for( m in [nup, ndown, nsetidx, ___, nins, ndel, nsep, ___, nref] )
 			n.append(m);
 		var sepIndex = Lambda.indexOf(sheet.separators, index);
 		nsep.checked = sepIndex >= 0;
@@ -980,15 +982,37 @@ save();
 			newLine(sheet, index);
 		};
 		nup.click = function() {
-			sheet.moveLine(opStack, index, -1);
+			var newIndex = sheet.moveLine(opStack, index, -1);
+			setCursor(sheet, -1, newIndex);
 		};
 		ndown.click = function() {
-			sheet.moveLine(opStack, index, 1);
+			var newIndex = sheet.moveLine(opStack, index, 1);
+			setCursor(sheet, -1, newIndex);
 		};
 		ndel.click = function() {
 			var op = prepSnapshot();
 			sheet.deleteLine(index);
 			commitSnapshot(op);
+		};
+		nsetidx.click = function() {
+			var captionSuffix = "";
+			var newIndex : Int = index;
+			while (true) {
+				var caption = "Enter new index for row #" + index + " (min=0, max=" + (sheet.lines.length-1) + ")" + captionSuffix;
+				var newIndexStr = window.window.prompt(caption, "" + index);
+				if (newIndexStr == null) {
+					return;
+				}
+				var parsedIndex = Std.parseInt(newIndexStr);
+				if (parsedIndex == null || parsedIndex < 0 || parsedIndex >= sheet.lines.length) {
+					captionSuffix = "\n⚠ You entered an illegal value";
+					continue;
+				}
+				newIndex = parsedIndex;
+				break;
+			}
+			opStack.push(new ops.RowMove(sheet.getNestedPos(index), newIndex));
+			setCursor(sheet, -1, newIndex);
 		};
 		nsep.click = function() {
 			var op = prepSnapshot();

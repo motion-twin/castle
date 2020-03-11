@@ -229,8 +229,6 @@ class MultifileLoadSave {
 					sepTitle = table.props.separatorTitles[sepIdx];
 					if (sepTitle == "") sepTitle = "__UntitledSeparator" + sepIdx;
 					var dirPath = tablePath + "/" + sepTitle;
-					if (!sys.FileSystem.exists(dirPath))
-						sys.FileSystem.createDirectory(dirPath);
 				}
 			}
 
@@ -258,6 +256,10 @@ class MultifileLoadSave {
 
 		if (lastStateOnDisk.get(path) == contents) {
 			return;
+		}
+
+		if (!sys.FileSystem.exists(Path.directory(path))) {
+			sys.FileSystem.createDirectory(Path.directory(path));
 		}
 #end
 

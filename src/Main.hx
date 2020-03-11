@@ -295,7 +295,7 @@ class Main extends Model {
 		switch( c.type ) {
 		case TRef(s):
 			var sd = base.getSheet(s);
-			if( sd == null ) {
+			if( sd != null ) {
 				var k = sd.index.get(id);
 				if( k != null ) {
 					var index = Lambda.indexOf(sd.lines, k.obj);

@@ -524,7 +524,7 @@ class Level {
 			draw();
 		case 'alpha':
 			l.props.alpha = val / 100;
-			model.save(false);
+			//model.save(false);
 			draw();
 		case 'size':
 			switch( l.data ) {

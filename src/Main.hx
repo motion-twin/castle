@@ -2840,7 +2840,7 @@ save();
 			if (prefs.curFile == "" || prefs.curFile == null) {
 				msaveas.click();
 			} else {
-				nuclearSave();
+				save();
 			}
 		};
 
@@ -2848,7 +2848,7 @@ save();
 			var i = J("<input>").attr("type", "file").attr("nwsaveas","new.cdb").css("display","none").change(function(e) {
 				var j = JTHIS;
 				prefs.curFile = j.val();
-				nuclearSave();
+				save();
 				j.remove();
 			});
 			i.appendTo(J("body"));
@@ -3030,15 +3030,6 @@ save();
 			prefs.recent.unshift(prefs.curFile);
 		if( prefs.recent.length > 8 ) prefs.recent.pop();
 		mcompress.checked = base.compress;
-	}
-
-	override function save( history = true ) {
-		super.save(history);
-		trace("Finish Saving");
-	}
-
-	public function nuclearSave(history: Bool = true) {
-		save(history);
 	}
 
 	public static var inst : Main;

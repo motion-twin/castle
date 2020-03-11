@@ -82,8 +82,7 @@ class Model {
 		return base.getSheet(name);
 	}
 
-	// history: if true, push curSavedData to undo stack
-	public function save( history = true ) {
+	public function save() {
 		if( prefs.curFile == null )
 			return;
 

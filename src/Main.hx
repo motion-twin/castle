@@ -2167,7 +2167,7 @@ save();
 			cols.prepend(col);
 			for( index in 0...sheet.lines.length ) {
 				var l = lines[index];
-				var c = J("<input type='submit' value='Edit'>");
+				var c = J("<a href='#'>Edit</a>");
 				J("<td>").append(c).prependTo(l);
 				c.click(function(_) {
 					l.click();

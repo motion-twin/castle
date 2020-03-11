@@ -21,7 +21,7 @@
 
 #now-saving-text {
 	margin: 0;
-	background: rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.2);
 	color: white;
 	position: fixed;
 	text-align: center;
@@ -32,21 +32,8 @@
 	padding-top: 64px;
 	font-size: 100pt;
 	vertical-align: middle;
-	-webkit-text-stroke: 5px black;
+	text-shadow: 0 0 5px black;
 	z-index: 999;
-}
-
-.save-reminder {
-	display: none;
-	text-align: center;;
-	animation: blinker 2.5s ease-in-out infinite;
-	padding : 0;
-	margin: 0;
-	padding : 0.5em;
-	background: orange;
-	color: white;
-	font-size: large;
-	font-weight: bold;
 }
 
 @keyframes blinker {
@@ -316,7 +303,7 @@ div#menu ul.sheets li.active {
 	margin-top: 100px;
 }
 .castle td, .dialog-floating td {
-	padding: 2px 4px;
+	padding: 1px 2px;
 	overflow: hidden;
 	min-width: 32px;
 }
@@ -469,8 +456,11 @@ div#menu ul.sheets li.active {
 	display: inline-block;
 	padding-right: 3px;
 	text-align: right;
-	font-size: 80%;
-	min-width: 70px;
+	font-size: xx-small;
+	letter-spacing: -0.5pt;
+	width: 42px;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	color: #446;
 }
 .castle td.t_int, .castle td.t_float, .dialog-floating td.t_int, .dialog-floating td.t_float {
@@ -521,10 +511,9 @@ div#menu ul.sheets li.active {
 }
 .castle td.t_color .color, .dialog-floating td.t_color .color {
 	display: inline-block;
-	width: 20px;
-	height: 20px;
-	border: 2px solid white;
-	outline: 1px solid black;
+	width: 2em;
+	height: 1em;
+	border: 1px solid lightgray;
 }
 .castle .flagValues, .dialog-floating .flagValues {
 	position: absolute;

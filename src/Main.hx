@@ -306,6 +306,7 @@ class Main extends Model {
 				}
 			}
 		default: // no-op
+			window.window.alert("Can't go to reference because\nthe selected cell isn't a reference type.");
 		}
 	}
 
@@ -435,13 +436,6 @@ class Main extends Model {
 		var inCDB = level == null && pages.curPage < 0;
 
 		switch( e.keyCode ) {
-		// Insert row
-		case K.INSERT if( inCDB ):
-			if( cursor.s != null ) {
-				newLine(cursor.s, cursor.y);
-				moveCursor(0, 1, false, false);
-			}
-
 		// Delete row
 		case K.DELETE if( inCDB ):
 			doDeleteSelectedRow();
@@ -474,20 +468,9 @@ class Main extends Model {
 		case K.SPACE:
 			e.preventDefault(); // scrolling
 
-		// Control-tab: next table
 		// Tab: next column
 		case K.TAB:
-			if( ctrlDown ) {
-				var sheets = base.sheets.filter(function(s) return !s.props.hide);
-				var pos = (level == null ? Lambda.indexOf(sheets, viewSheet) : sheets.length + Lambda.indexOf(levels, level)) + 1;
-				var s = sheets[pos % (sheets.length + levels.length)];
-				if( s != null ) selectSheet(s) else {
-					var level = levels[pos - sheets.length];
-					if( level != null ) selectLevel(level);
-				}
-			} else {
-				moveCursor(e.shiftKey? -1:1, 0, false, false);
-			}
+			moveCursor(e.shiftKey? -1:1, 0, false, false);
 		
 		case K.ESC:
 			if( cursor.s != null && cursor.s.parent != null ) {
@@ -498,15 +481,6 @@ class Main extends Model {
 				cursor.select = null;
 				updateCursor();
 			}
-		
-		// F3: Show references
-		case K.F3:
-			if( cursor.s != null )
-				showReferences(cursor.s, cursor.y);
-
-		// F4: Go to referenced sheet
-		case K.F4:
-			openTableReferencedBySelectedCell();
 
 		default:
 		}
@@ -528,8 +502,7 @@ class Main extends Model {
 		if( results == null )
 			return;
 		if( results.length == 0 ) {
-			setErrorMessage("Not found");
-			haxe.Timer.delay(setErrorMessage.bind(), 500);
+			window.window.alert("Nothing refers to this row.");
 			return;
 		}
 
@@ -789,14 +762,6 @@ save();
 		}
 	}
 
-
-	function setErrorMessage( ?msg ) {
-		if( msg == null )
-			J(".errorMsg").hide();
-		else
-			J(".errorMsg").text(msg).show();
-	}
-
 	function tileHtml( v : cdb.Types.TilePos, ?isInline ) {
 		var path = getAbsPath(v.file);
 		if( !quickExists(path) ) {
@@ -966,8 +931,8 @@ save();
 		var nup = new MenuItem( { label : "Move Up" } );
 		var ndown = new MenuItem( { label : "Move Down" } );
 		var nsetidx = new MenuItem( { label: "Move To Index..."} );
-		var nins = new MenuItem( { label : "Insert Below" } );
-		var ndel = new MenuItem( { label : "Delete" } );
+		var nins = new MenuItem( { label : "Insert Row Below" } );
+		var ndel = new MenuItem( { label : "Delete Row" } );
 		var nsep = new MenuItem( { label : "New Separator Above", type : MenuItemType.checkbox } );
 		var nref = new MenuItem( { label : "Show References" } );
 		for( m in [nup, ndown, nsetidx, ___, nins, ndel, nsep, ___, nref] )
@@ -1040,10 +1005,10 @@ save();
 	function popupColumn( sheet : Sheet, c : Column, ?isProperties ) {
 		var n = new Menu();
 		var nedit = new MenuItem( { label : "Edit" } );
-		var nins = new MenuItem( { label : "Add Column" } );
+		var nins = new MenuItem( { label : "New Column..." } );
 		var nleft = new MenuItem( { label : "Move Left" } );
 		var nright = new MenuItem( { label : "Move Right" } );
-		var ndel = new MenuItem( { label : "Delete" } );
+		var ndel = new MenuItem( { label : "Delete Column" } );
 		var ndisp = new MenuItem( { label : "Display Column", type : MenuItemType.checkbox } );
 		var nicon = new MenuItem( { label : "Display Icon", type : MenuItemType.checkbox } );
 		for( m in [nedit, nins, nleft, nright, ndel, ndisp, nicon] )
@@ -1276,7 +1241,6 @@ save();
 
 			v.html(html);
 			v.removeClass("edit");
-			setErrorMessage();
 			if (rowModifyOp.isUseless()) {
 				trace("last operation was useless");
 				opStack.removeLastOp(rowModifyOp);
@@ -1394,10 +1358,9 @@ save();
 					try {
 						if( str != "" )
 							base.parseTypeVal(t, str);
-						setErrorMessage();
 						inputBox.removeClass("error");
 					} catch( msg : String ) {
-						setErrorMessage(msg);
+						window.window.alert(msg);
 						inputBox.addClass("error");
 					}
 				});
@@ -2204,7 +2167,7 @@ save();
 		}
 
 		if( sheet.lines.length == 0 ) {
-			var l = J('<tr><td colspan="${sheet.columns.length + 1}"><a href="javascript:_.insertLine()">Insert Line</a></td></tr>');
+			var l = J('<tr><td colspan="${sheet.columns.length + 1}"><a href="javascript:_.insertLine()">Insert Row</a></td></tr>');
 			l.find("a").click(function(_) setCursor(sheet));
 			lines.push(l);
 		}
@@ -2403,7 +2366,7 @@ save();
 			@:privateAccess base.tmap = oldTMap;
 			if( t != "" )
 				errors.push("Invalid " + StringTools.htmlEscape(t));
-			setErrorMessage(errors.length == 0 ? null : errors.join("<br>"));
+			window.window.alert(errors.length == 0 ? null : errors.join("\n\n"));
 			if( errors.length == 0 ) apply.removeAttr("disabled") else apply.attr("disabled","");
 		});
 		text.keydown(function(e) {
@@ -2420,7 +2383,6 @@ save();
 		text.val(typesStr);
 		cancel.click(function(_) {
 			typesStr = null;
-			setErrorMessage();
 			// prevent partial changes being made
 			rollbackSnapshot(op);
 
@@ -2953,6 +2915,61 @@ save();
 			m_edit.append(mi);
 		}
 
+		editMenu = m_edit;
+
+		// -----------------------------------
+
+		var mi_sheet = new MenuItem({ label : "Sheet" });
+		var m_sheet = new Menu();
+		mi_sheet.submenu = m_sheet;
+
+		var mi_newSheet = new MenuItem({ label : "New Sheet..." });
+		mi_newSheet.click = newSheet;
+
+		var mi_newColumn = new MenuItem({ label: "New Column..." });
+		mi_newColumn.click = function() { newColumn(); };
+
+		var mi_newRow = new MenuItem({ label: "New Row", key: "Insert" });
+		mi_newRow.click = function() {
+			if (!isInCDB()) return;
+			if (cursor.s == null) return;
+			newLine(cursor.s, cursor.y);
+			moveCursor(0, 1, false, false);
+		};
+
+		var mi_ref1 = new MenuItem({ label : "Show References", key : "F3" });
+		mi_ref1.click = function() { 
+			if (isInCDB() && cursor.s != null)
+				showReferences(cursor.s, cursor.y);
+		};
+
+		var mi_ref2 = new MenuItem({ label : "Go To Reference", key : "F4" });
+		mi_ref2.click = function() {
+			if (isInCDB())
+				openTableReferencedBySelectedCell();
+		};
+
+		function goToNextSheet(delta: Int) {
+			var sheets = base.sheets.filter(function(s) return !s.props.hide);
+			var pos = (level == null ? Lambda.indexOf(sheets, viewSheet) : sheets.length + Lambda.indexOf(levels, level)) + delta;
+			if (pos == -1) pos = sheets.length + levels.length;
+			var s = sheets[pos % (sheets.length + levels.length)];
+			if( s != null ) selectSheet(s) else {
+				var level = levels[pos - sheets.length];
+				if( level != null ) selectLevel(level);
+			}
+		}
+
+		var mi_nextSheet = new MenuItem({ label : "Next Sheet", key : "Tab", modifiers : modifier });
+		mi_nextSheet.click = function() { goToNextSheet(1); };
+
+		var mi_prevSheet = new MenuItem({ label : "Previous Sheet", key : "Tab", modifiers : modifier + "+shift" });
+		mi_prevSheet.click = function() { goToNextSheet(-1); };
+
+		for (mi in [mi_newSheet, mi_newColumn, mi_newRow, msep, mi_ref1, mi_ref2, msep, mi_nextSheet, mi_prevSheet]) {
+			m_sheet.append(mi);
+		}
+
 		// -----------------------------------
 
 
@@ -2998,6 +3015,7 @@ save();
 		if (mi_zoomLevels.exists(window.zoomLevel))
 			mi_zoomLevels[window.zoomLevel].checked = true;
 
+		// -----------------------------------
 
 		if(Sys.systemName().indexOf("Mac") != -1) {
 			menu.createMacBuiltin("CastleDB", {hideEdit: false, hideWindow: true}); // needed so copy&paste inside INPUTs work
@@ -3010,6 +3028,7 @@ save();
 			menu.append(mfile);
 			menu.append(mi_edit);
 			menu.append(mi_view);
+			menu.append(mi_sheet);
 		}
 
 		window.menu = menu;

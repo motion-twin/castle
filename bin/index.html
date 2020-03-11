@@ -22,7 +22,7 @@
 	<div id="newsheet" class="modal" style="display:none">
 		<div class="content">
 		<form id="sheet_form" onsubmit="return false">
-			<h1>Sheet Props</h1>
+			<h1>Sheet Properties</h1>
 			<p>
 				<span>Sheet Name</span> <input type="text" class="value" id="sheet_name"/>
 			</p>
@@ -40,7 +40,7 @@
 	<div id="newcol" class="modal" style="display:none">
 		<div class="content">
 			<form id="col_form" onsubmit="return false">
-			<h1>Column Props</h1>
+			<h1>Column Properties</h1>
 			<p>
 				<span>Column name</span> <input type="text" name="name"/>
 			</p>
@@ -99,25 +99,11 @@
 	</div>
 
 	<div id="menu">
-
-		<div class="errorMsg" style="display:none">
-			ERROR
-		</div>
-
-		<!--
-		<a href="javascript:_.editTypes()">Edit Types</a>
-		-->
-		<a href="javascript:_.insertLine()">New Line</a>
-		<a href="javascript:_.newColumn()">New Column</a>
-		<a href="javascript:_.newSheet()">New Sheet</a>
-
 		<ul class="sheets" id="sheets">
 			<li>Sheet 1</li>
 			<li class="active">Sheet 2</li>
 			<li>Sheet 3</li>
 		</ul>
-
-		
 	</div>
 
 	<div class="box">

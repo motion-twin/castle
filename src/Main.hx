@@ -1758,6 +1758,9 @@ save();
 			});
 		}
 
+		// Sort alphabetically
+		available.sort(function(a,b) { return a.name < b.name ? -1 : 1; });
+
 		var end = J("<tr>").appendTo(content);
 		end = J("<td>").attr("colspan", "2").appendTo(end);
 		var sel = J("<select>").appendTo(end);

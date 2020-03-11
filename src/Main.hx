@@ -73,6 +73,7 @@ class Main extends Model {
 	var pages : JqPages;
 
 	var macEditMenu : MenuItem;
+	var editMenu : Menu;
 
 	public static function getCallstackString(skip:Int = 1) {
 		var cs = haxe.CallStack.callStack();
@@ -414,6 +415,14 @@ class Main extends Model {
 		return { x1 : x1, x2 : x2, y1 : y1, y2 : y2 };
 	}
 
+	function isInCDB() {
+		return !isInLevel() && pages.curPage < 0;
+	}
+
+	function isInLevel() {
+		return level != null;
+	}
+
 	function onKey( e : js.html.KeyboardEvent ) {
 		var ctrlDown = e.ctrlKey;
 		if(Sys.systemName().indexOf("Mac") != -1) {
@@ -465,27 +474,6 @@ class Main extends Model {
 		case K.SPACE:
 			e.preventDefault(); // scrolling
 
-		// Undo
-		case 'Z'.code if( ctrlDown && pages.curPage < 0 ):
-			doUndo();
-		
-		// Redo
-		case 'Y'.code if( ctrlDown && pages.curPage < 0 ):
-			doRedo();
-		
-		// Copy
-		case 'C'.code if( ctrlDown ):
-			doCopy();
-		
-		// Cut
-		case 'X'.code if( ctrlDown ):
-			onKey(cast { keyCode : 'C'.code, ctrlKey : true });
-			onKey(cast { keyCode : K.DELETE } );
-		
-		// Paste
-		case 'V'.code if( ctrlDown ):
-			doPaste();
-		
 		// Control-tab: next table
 		// Tab: next column
 		case K.TAB:
@@ -520,11 +508,6 @@ class Main extends Model {
 		case K.F4:
 			openTableReferencedBySelectedCell();
 
-		// Ctrl-F: find
-		case "F".code if( ctrlDown && inCDB ):
-			var s = J("#search");
-			s.show();
-			s.find("input").focus().select();
 		default:
 		}
 
@@ -1263,6 +1246,10 @@ save();
 		opStack.pushNoApply(rowModifyOp);
 
 		if( macEditMenu != null ) window.menu.append(macEditMenu);
+
+		for (mi in editMenu.items)
+			mi.enabled = false;
+
 		var obj = sheet.lines[rowIndex];
 		var val : Dynamic = Reflect.field(obj, column.name);
 		var old = val;
@@ -1284,6 +1271,9 @@ save();
 
 		function editDone() {
 			if( macEditMenu != null ) window.menu.remove(macEditMenu);
+			for (mi in editMenu.items)
+				mi.enabled = true;
+
 			v.html(html);
 			v.removeClass("edit");
 			setErrorMessage();
@@ -2931,6 +2921,41 @@ save();
 
 		};
 
+		// -----------------------------------
+		var mi_edit = new MenuItem({ label : "Edit" });
+		var m_edit = new Menu();
+		mi_edit.submenu = m_edit;
+
+		var mi_undo = new MenuItem({ label : "Undo", key : "Z", modifiers: modifier });
+		mi_undo.click = function() { if (pages.curPage < 0) doUndo(); };
+
+		var mi_redo = new MenuItem({ label : "Redo", key : "Y", modifiers: modifier });
+		mi_redo.click = function() { if (pages.curPage < 0) doRedo(); };
+
+		var mi_cut = new MenuItem({ label : "Cut", key : "X", modifiers : modifier });
+		mi_cut.click = function() { if (isInCDB()) { doCopy(); doDeleteSelectedRow(); } };
+
+		var mi_copy = new MenuItem({ label : "Copy", key : "C", modifiers : modifier });
+		mi_copy.click = function() { if (isInCDB()) { doCopy(); } };
+
+		var mi_paste = new MenuItem({ label : "Paste", key : "V", modifiers : modifier });
+		mi_paste.click = function() { if (isInCDB()) { doPaste(); } };
+
+		var mi_find = new MenuItem({ label : "Find", key : "F", modifiers : modifier });
+		mi_find.click = function() {
+			if (!isInCDB()) return;
+			var s = J("#search");
+			s.show();
+			s.find("input").focus().select();
+		}
+
+		for (mi in [mi_undo, mi_redo, msep, mi_cut, mi_copy, mi_paste, msep, mi_find]) {
+			m_edit.append(mi);
+		}
+
+		// -----------------------------------
+
+
 		window.zoomLevel = prefs.zoomLevel;
 		var mi_view = new MenuItem({label: "View"});
 		var m_view = new Menu();
@@ -2983,7 +3008,7 @@ save();
 		}
 		else {
 			menu.append(mfile);
-//			menu.append(mi_edit);
+			menu.append(mi_edit);
 			menu.append(mi_view);
 		}
 

@@ -149,40 +149,25 @@ class MultifileLoadSave {
 	}
 
 #if EDITOR
-	// Delete any files/directories under MULTIFILE_CDB_DIR
-	// that aren't keys in saveStateOnDisk.
-	public static function nukeZombieFiles(data : Database, schemaPath : String)
+	// Delete files in lastStateOnDisk that aren't in saveStateOnDisk
+	public static function nukeZombieFiles(data : Data, schemaPath : String)
 	{
-		var baseDir = MultifileLoadSave.getBaseDir(schemaPath);
+		var baseDir = getBaseDir(schemaPath);
 
-		var frontier = [baseDir];
-		var frontierPos = 0;
-
-		// pass 1: delete files
-		while (frontierPos < frontier.length) {
-			var dir = frontier[frontierPos];
-			frontierPos++;
-
-			var fileCount = 0;
-
-			for (file in FileSystem.readDirectory(dir)) {
-				var path = Path.join([dir, file]);
-				if (FileSystem.isDirectory(path)) {
-					var subdir = Path.addTrailingSlash(path);
-					frontier.push(subdir);
-				} else if (!lastStateOnDisk.exists(path)) {
-					trace("Nuke file: " + path);
-					FileSystem.deleteFile(path);
-				}
+		for (oldFile in lastStateOnDisk.keys()) {
+			if (lastStateOnDisk.get(oldFile) == null || // file did not exist, skip
+				saveStateOnDisk.exists(oldFile)) // not a zombie file, skip
+			{
+				continue;
 			}
-		}
 
-		// pass 2: delete directories
-		while (frontier.length > 0) {
-			var dir = frontier.pop();
-			if (FileSystem.readDirectory(dir).length == 0) {
-				trace("Nuke dir: " + dir);
-				FileSystem.deleteDirectory(dir);
+			FileSystem.deleteFile(oldFile);
+
+			// Delete empty parent directories
+			var parentDir = Path.directory(oldFile);
+			while (parentDir != baseDir && FileSystem.readDirectory(parentDir).length == 0) {
+				FileSystem.deleteDirectory(parentDir);
+				parentDir = Path.directory(parentDir);
 			}
 		}
 	}
@@ -199,6 +184,7 @@ class MultifileLoadSave {
 		}
 
 #if EDITOR
+		nukeZombieFiles(data, schemaPath);
 		lastStateOnDisk = saveStateOnDisk;
 		saveStateOnDisk = null;
 #end

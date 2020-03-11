@@ -352,8 +352,10 @@ class Main extends Model {
 		if( cursor.s == null )
 			return;
 		if( cursor.x == -1 && ctrl ) {
-			if( dy != 0 )
-				cursor.s.moveLine(opStack, cursor.y, dy);
+			if( dy != 0 ) {
+				var newIndex = cursor.s.moveLine(opStack, cursor.y, dy);
+				setCursor(cursor.s, -1, newIndex);
+			}
 			updateCursor();
 			return;
 		}

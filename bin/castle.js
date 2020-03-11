@@ -1446,7 +1446,6 @@ Level.prototype = {
 		switch(name) {
 		case "alpha":
 			l.props.alpha = val / 100;
-			this.model.save(false);
 			this.draw();
 			break;
 		case "close":
@@ -3785,10 +3784,7 @@ Model.prototype = {
 	,getSheet: function(name) {
 		return this.base.getSheet(name);
 	}
-	,save: function(history) {
-		if(history == null) {
-			history = true;
-		}
+	,save: function() {
 		var _gthis = this;
 		if(this.prefs.curFile == null) {
 			return;
@@ -3805,7 +3801,7 @@ Model.prototype = {
 				success = true;
 			} catch( err ) {
 				var err1 = ((err) instanceof js__$Boot_HaxeError) ? err.val : err;
-				console.log("src/Model.hx:103:",err1);
+				console.log("src/Model.hx:102:",err1);
 				window.alert(Std.string("An error occurred while saving:\n\n" + Std.string(err1)));
 			}
 			window.setTimeout(function() {
@@ -7745,14 +7741,14 @@ Main.prototype = $extend(Model.prototype,{
 			if(_gthis.prefs.curFile == "" || _gthis.prefs.curFile == null) {
 				msaveas.click();
 			} else {
-				_gthis.nuclearSave();
+				_gthis.save();
 			}
 		};
 		msaveas.click = function() {
 			var i1 = $("<input>").attr("type","file").attr("nwsaveas","new.cdb").css("display","none").change(function(e1) {
 				var j1 = $(this);
 				_gthis.prefs.curFile = j1.val();
-				_gthis.nuclearSave();
+				_gthis.save();
 				j1.remove();
 			});
 			i1.appendTo($("body"));
@@ -7968,19 +7964,6 @@ Main.prototype = $extend(Model.prototype,{
 			this.prefs.recent.pop();
 		}
 		this.mcompress.checked = this.base.data.compress;
-	}
-	,save: function(history) {
-		if(history == null) {
-			history = true;
-		}
-		Model.prototype.save.call(this,history);
-		console.log("src/Main.hx:3037:","Finish Saving");
-	}
-	,nuclearSave: function(history) {
-		if(history == null) {
-			history = true;
-		}
-		this.save(history);
 	}
 	,__class__: Main
 });
@@ -11822,49 +11805,38 @@ cdb_MultifileLoadSave.getIdField = function(table) {
 };
 cdb_MultifileLoadSave.nukeZombieFiles = function(data,schemaPath) {
 	var baseDir = cdb_MultifileLoadSave.getBaseDir(schemaPath);
-	var frontier = [baseDir];
-	var frontierPos = 0;
-	while(frontierPos < frontier.length) {
-		var dir = frontier[frontierPos];
-		++frontierPos;
-		var fileCount = 0;
-		var _g = 0;
-		var _g1 = js_node_Fs.readdirSync(dir);
-		while(_g < _g1.length) {
-			var file = _g1[_g];
-			++_g;
-			var path = haxe_io_Path.join([dir,file]);
-			if(sys_FileSystem.isDirectory(path)) {
-				var subdir = haxe_io_Path.addTrailingSlash(path);
-				frontier.push(subdir);
-			} else {
-				var _this = cdb_MultifileLoadSave.lastStateOnDisk;
-				if(!(__map_reserved[path] != null ? _this.existsReserved(path) : _this.h.hasOwnProperty(path))) {
-					console.log("cdb/MultifileLoadSave.hx:174:","Nuke file: " + path);
-					js_node_Fs.unlinkSync(path);
-				}
-			}
+	var oldFile = cdb_MultifileLoadSave.lastStateOnDisk.keys();
+	while(oldFile.hasNext()) {
+		var oldFile1 = oldFile.next();
+		var tmp;
+		var _this = cdb_MultifileLoadSave.lastStateOnDisk;
+		if((__map_reserved[oldFile1] != null ? _this.getReserved(oldFile1) : _this.h[oldFile1]) != null) {
+			var _this1 = cdb_MultifileLoadSave.saveStateOnDisk;
+			tmp = __map_reserved[oldFile1] != null ? _this1.existsReserved(oldFile1) : _this1.h.hasOwnProperty(oldFile1);
+		} else {
+			tmp = true;
 		}
-	}
-	while(frontier.length > 0) {
-		var dir1 = frontier.pop();
-		if(js_node_Fs.readdirSync(dir1).length == 0) {
-			console.log("cdb/MultifileLoadSave.hx:184:","Nuke dir: " + dir1);
-			if(sys_FileSystem.exists(dir1)) {
-				var _g2 = 0;
-				var _g11 = js_node_Fs.readdirSync(dir1);
-				while(_g2 < _g11.length) {
-					var file1 = _g11[_g2];
-					++_g2;
-					var curPath = dir1 + "/" + file1;
+		if(tmp) {
+			continue;
+		}
+		js_node_Fs.unlinkSync(oldFile1);
+		var parentDir = haxe_io_Path.directory(oldFile1);
+		while(parentDir != baseDir && js_node_Fs.readdirSync(parentDir).length == 0) {
+			if(sys_FileSystem.exists(parentDir)) {
+				var _g = 0;
+				var _g1 = js_node_Fs.readdirSync(parentDir);
+				while(_g < _g1.length) {
+					var file = _g1[_g];
+					++_g;
+					var curPath = parentDir + "/" + file;
 					if(sys_FileSystem.isDirectory(curPath)) {
 						if(sys_FileSystem.exists(curPath)) {
-							var _g3 = 0;
-							var _g12 = js_node_Fs.readdirSync(curPath);
-							while(_g3 < _g12.length) {
-								var file2 = _g12[_g3];
-								++_g3;
-								var curPath1 = curPath + "/" + file2;
+							var _g2 = 0;
+							var _g11 = js_node_Fs.readdirSync(curPath);
+							while(_g2 < _g11.length) {
+								var file1 = _g11[_g2];
+								++_g2;
+								var curPath1 = curPath + "/" + file1;
 								if(sys_FileSystem.isDirectory(curPath1)) {
 									sys_FileSystem.deleteDirectory(curPath1);
 								} else {
@@ -11877,8 +11849,9 @@ cdb_MultifileLoadSave.nukeZombieFiles = function(data,schemaPath) {
 						js_node_Fs.unlinkSync(curPath);
 					}
 				}
-				js_node_Fs.rmdirSync(dir1);
+				js_node_Fs.rmdirSync(parentDir);
 			}
+			parentDir = haxe_io_Path.directory(parentDir);
 		}
 	}
 };
@@ -11891,6 +11864,7 @@ cdb_MultifileLoadSave.saveMultifileTableContents = function(data,schemaPath) {
 		++_g;
 		cdb_MultifileLoadSave._saveTable(table,schemaPath);
 	}
+	cdb_MultifileLoadSave.nukeZombieFiles(data,schemaPath);
 	cdb_MultifileLoadSave.lastStateOnDisk = cdb_MultifileLoadSave.saveStateOnDisk;
 	cdb_MultifileLoadSave.saveStateOnDisk = null;
 };
@@ -11934,9 +11908,6 @@ cdb_MultifileLoadSave._saveTable = function(table,schemaPath) {
 					sepTitle = "__UntitledSeparator" + sepIdx;
 				}
 				var dirPath = tablePath + "/" + sepTitle;
-				if(!sys_FileSystem.exists(dirPath)) {
-					sys_FileSystem.createDirectory(dirPath);
-				}
 			}
 		}
 		if(sepTitle != null) {
@@ -11958,6 +11929,9 @@ cdb_MultifileLoadSave.writeIfDiff = function(path,contents) {
 	var _this1 = cdb_MultifileLoadSave.lastStateOnDisk;
 	if((__map_reserved[path] != null ? _this1.getReserved(path) : _this1.h[path]) == contents) {
 		return;
+	}
+	if(!sys_FileSystem.exists(haxe_io_Path.directory(path))) {
+		sys_FileSystem.createDirectory(haxe_io_Path.directory(path));
 	}
 	js_node_Fs.writeFileSync(path,contents);
 };
@@ -15709,6 +15683,13 @@ var haxe_io_Path = function(path) {
 };
 $hxClasses["haxe.io.Path"] = haxe_io_Path;
 haxe_io_Path.__name__ = "haxe.io.Path";
+haxe_io_Path.directory = function(path) {
+	var s = new haxe_io_Path(path);
+	if(s.dir == null) {
+		return "";
+	}
+	return s.dir;
+};
 haxe_io_Path.extension = function(path) {
 	var s = new haxe_io_Path(path);
 	if(s.ext == null) {
@@ -23803,8 +23784,6 @@ lvl_Palette.prototype = {
 	,__class__: lvl_Palette
 };
 var ops_FullSnapshot = function() {
-	this.previousState = null;
-	this.currentState = null;
 };
 $hxClasses["ops.FullSnapshot"] = ops_FullSnapshot;
 ops_FullSnapshot.__name__ = "ops.FullSnapshot";
@@ -23812,16 +23791,20 @@ ops_FullSnapshot.__interfaces__ = [Operation];
 ops_FullSnapshot.prototype = {
 	setPreviousState: function(context) {
 		this.previousState = cdb_Parser.saveMonofile(context.base.data,true);
+		this.previousFormat = context.base.data.format;
 		return this;
 	}
 	,setCurrentState: function(context) {
 		this.currentState = cdb_Parser.saveMonofile(context.base.data,true);
+		this.currentFormat = context.base.data.format;
 	}
 	,apply: function(context) {
 		context.base.loadJson(this.currentState);
+		context.base.data.format = this.currentFormat;
 	}
 	,rollback: function(context) {
 		context.base.loadJson(this.previousState);
+		context.base.data.format = this.previousFormat;
 	}
 	,__class__: ops_FullSnapshot
 };

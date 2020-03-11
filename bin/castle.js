@@ -4160,7 +4160,7 @@ Main.prototype = $extend(Model.prototype,{
 		if(_g._hx_index == 6) {
 			var s = _g.sheet;
 			var sd = this.base.getSheet(s);
-			if(sd == null) {
+			if(sd != null) {
 				var _this = sd.index;
 				var k = __map_reserved[id] != null ? _this.getReserved(id) : _this.h[id];
 				if(k != null) {
@@ -4177,6 +4177,8 @@ Main.prototype = $extend(Model.prototype,{
 					}
 				}
 			}
+		} else {
+			this.window.window.alert("Can't go to reference because\nthe selected cell isn't a reference type.");
 		}
 	}
 	,searchFilter: function(filter) {
@@ -4243,7 +4245,8 @@ Main.prototype = $extend(Model.prototype,{
 		}
 		if(this.cursor.x == -1 && ctrl) {
 			if(dy != 0) {
-				this.cursor.s.moveLine(this.opStack,this.cursor.y,dy);
+				var newIndex = this.cursor.s.moveLine(this.opStack,this.cursor.y,dy);
+				this.setCursor(this.cursor.s,-1,newIndex);
 			}
 			this.updateCursor();
 			return;
@@ -4301,6 +4304,16 @@ Main.prototype = $extend(Model.prototype,{
 		}
 		return { x1 : x1, x2 : x2, y1 : y1, y2 : y2};
 	}
+	,isInCDB: function() {
+		if(!this.isInLevel()) {
+			return this.pages.curPage < 0;
+		} else {
+			return false;
+		}
+	}
+	,isInLevel: function() {
+		return this.level != null;
+	}
 	,onKey: function(e) {
 		var ctrlDown = e.ctrlKey;
 		if(Sys.systemName().indexOf("Mac") != -1) {
@@ -4312,31 +4325,7 @@ Main.prototype = $extend(Model.prototype,{
 		var inCDB = this.level == null && this.pages.curPage < 0;
 		switch(e.keyCode) {
 		case 9:
-			if(ctrlDown) {
-				var _g = [];
-				var _g1 = 0;
-				var _g2 = this.base.sheets;
-				while(_g1 < _g2.length) {
-					var v = _g2[_g1];
-					++_g1;
-					if(!v.sheet.props.hide) {
-						_g.push(v);
-					}
-				}
-				var sheets = _g;
-				var pos = (this.level == null ? Lambda.indexOf(sheets,this.viewSheet) : sheets.length + Lambda.indexOf(this.levels,this.level)) + 1;
-				var s = sheets[pos % (sheets.length + this.levels.length)];
-				if(s != null) {
-					this.selectSheet(s);
-				} else {
-					var level = this.levels[pos - sheets.length];
-					if(level != null) {
-						this.selectLevel(level);
-					}
-				}
-			} else {
-				this.moveCursor(e.shiftKey ? -1 : 1,0,false,false);
-			}
+			this.moveCursor(e.shiftKey ? -1 : 1,0,false,false);
 			break;
 		case 13:
 			if(inCDB) {
@@ -4372,59 +4361,10 @@ Main.prototype = $extend(Model.prototype,{
 			this.moveCursor(0,1,e.shiftKey,ctrlDown);
 			e.preventDefault();
 			break;
-		case 45:
-			if(inCDB) {
-				if(this.cursor.s != null) {
-					this.newLine(this.cursor.s,this.cursor.y);
-					this.moveCursor(0,1,false,false);
-				}
-			}
-			break;
 		case 46:
 			if(inCDB) {
 				this.doDeleteSelectedRow();
 			}
-			break;
-		case 67:
-			if(ctrlDown) {
-				this.doCopy();
-			}
-			break;
-		case 70:
-			if(ctrlDown && inCDB) {
-				var s1 = $("#search");
-				s1.show();
-				s1.find("input").focus().select();
-			}
-			break;
-		case 86:
-			if(ctrlDown) {
-				this.doPaste();
-			}
-			break;
-		case 88:
-			if(ctrlDown) {
-				this.onKey({ keyCode : 67, ctrlKey : true});
-				this.onKey({ keyCode : 46});
-			}
-			break;
-		case 89:
-			if(ctrlDown && this.pages.curPage < 0) {
-				this.doRedo();
-			}
-			break;
-		case 90:
-			if(ctrlDown && this.pages.curPage < 0) {
-				this.doUndo();
-			}
-			break;
-		case 114:
-			if(this.cursor.s != null) {
-				this.showReferences(this.cursor.s,this.cursor.y);
-			}
-			break;
-		case 115:
-			this.openTableReferencedBySelectedCell();
 			break;
 		default:
 		}
@@ -4450,11 +4390,7 @@ Main.prototype = $extend(Model.prototype,{
 			return;
 		}
 		if(results.length == 0) {
-			this.setErrorMessage("Not found");
-			var f = $bind(this,this.setErrorMessage);
-			haxe_Timer.delay(function() {
-				f();
-			},500);
+			this.window.window.alert("Nothing refers to this row.");
 			return;
 		}
 		var line = this.getLine(sheet,index);
@@ -4748,13 +4684,6 @@ Main.prototype = $extend(Model.prototype,{
 			}
 		}
 	}
-	,setErrorMessage: function(msg) {
-		if(msg == null) {
-			$(".errorMsg").hide();
-		} else {
-			$(".errorMsg").text(msg).show();
-		}
-	}
 	,tileHtml: function(v,isInline) {
 		var path = this.getAbsPath(v.file);
 		if(!this.quickExists(path)) {
@@ -5007,8 +4936,8 @@ Main.prototype = $extend(Model.prototype,{
 		var nup = new js_node_webkit_MenuItem({ label : "Move Up"});
 		var ndown = new js_node_webkit_MenuItem({ label : "Move Down"});
 		var nsetidx = new js_node_webkit_MenuItem({ label : "Move To Index..."});
-		var nins = new js_node_webkit_MenuItem({ label : "Insert Below"});
-		var ndel = new js_node_webkit_MenuItem({ label : "Delete"});
+		var nins = new js_node_webkit_MenuItem({ label : "Insert Row Below"});
+		var ndel = new js_node_webkit_MenuItem({ label : "Delete Row"});
 		var nsep = new js_node_webkit_MenuItem({ label : "New Separator Above", type : "checkbox"});
 		var nref = new js_node_webkit_MenuItem({ label : "Show References"});
 		var m = nup;
@@ -5105,10 +5034,10 @@ Main.prototype = $extend(Model.prototype,{
 		var _gthis = this;
 		var n = new js_node_webkit_Menu();
 		var nedit = new js_node_webkit_MenuItem({ label : "Edit"});
-		var nins = new js_node_webkit_MenuItem({ label : "Add Column"});
+		var nins = new js_node_webkit_MenuItem({ label : "New Column..."});
 		var nleft = new js_node_webkit_MenuItem({ label : "Move Left"});
 		var nright = new js_node_webkit_MenuItem({ label : "Move Right"});
-		var ndel = new js_node_webkit_MenuItem({ label : "Delete"});
+		var ndel = new js_node_webkit_MenuItem({ label : "Delete Column"});
 		var ndisp = new js_node_webkit_MenuItem({ label : "Display Column", type : "checkbox"});
 		var nicon = new js_node_webkit_MenuItem({ label : "Display Icon", type : "checkbox"});
 		var m = nedit;
@@ -5389,6 +5318,13 @@ Main.prototype = $extend(Model.prototype,{
 		if(this.macEditMenu != null) {
 			this.window.menu.append(this.macEditMenu);
 		}
+		var _g = 0;
+		var _g1 = this.editMenu.items;
+		while(_g < _g1.length) {
+			var mi = _g1[_g];
+			++_g;
+			mi.enabled = false;
+		}
 		var obj = sheet.sheet.lines[rowIndex];
 		var val = Reflect.field(obj,column.name);
 		var old = val;
@@ -5400,26 +5336,32 @@ Main.prototype = $extend(Model.prototype,{
 			if(_gthis.macEditMenu != null) {
 				_gthis.window.menu.remove(_gthis.macEditMenu);
 			}
+			var _g2 = 0;
+			var _g3 = _gthis.editMenu.items;
+			while(_g2 < _g3.length) {
+				var mi1 = _g3[_g2];
+				++_g2;
+				mi1.enabled = true;
+			}
 			v.html(html);
 			v.removeClass("edit");
-			_gthis.setErrorMessage();
 			if(rowModifyOp.isUseless()) {
-				console.log("src/Main.hx:1291:","last operation was useless");
+				console.log("src/Main.hx:1235:","last operation was useless");
 				_gthis.opStack.removeLastOp(rowModifyOp);
 			}
 		};
-		var _g = column.type;
-		switch(_g._hx_index) {
+		var _g21 = column.type;
+		switch(_g21._hx_index) {
 		case 0:case 1:case 3:case 4:case 16:
 			v.empty();
 			var inputBox = $(column.type == cdb_ColumnType.TString ? "<textarea>" : "<input>");
 			v.addClass("edit");
 			inputBox.appendTo(v);
 			if(val != null) {
-				var _g1 = column.type;
-				switch(_g1._hx_index) {
+				var _g22 = column.type;
+				switch(_g22._hx_index) {
 				case 9:
-					var t = _g1.name;
+					var t = _g22.name;
 					var tmp = this.base.typeValToString(this.base.getCustomType(t),val);
 					inputBox.val(tmp);
 					break;
@@ -5485,8 +5427,8 @@ Main.prototype = $extend(Model.prototype,{
 					}
 				} else {
 					var val2;
-					var _g2 = column.type;
-					switch(_g2._hx_index) {
+					var _g23 = column.type;
+					switch(_g23._hx_index) {
 					case 0:
 						val2 = _gthis.base.r_ident.match(newValue) ? newValue : null;
 						break;
@@ -5498,7 +5440,7 @@ Main.prototype = $extend(Model.prototype,{
 						val2 = isNaN(f) ? null : f;
 						break;
 					case 9:
-						var t1 = _g2.name;
+						var t1 = _g23.name;
 						try {
 							val2 = _gthis.base.parseTypeVal(_gthis.base.getCustomType(t1),newValue);
 						} catch( e2 ) {
@@ -5569,9 +5511,9 @@ Main.prototype = $extend(Model.prototype,{
 					return;
 				}
 			});
-			var _g3 = column.type;
-			if(_g3._hx_index == 9) {
-				var t2 = _g3.name;
+			var _g24 = column.type;
+			if(_g24._hx_index == 9) {
+				var t2 = _g24.name;
 				var t3 = this.base.getCustomType(t2);
 				inputBox.keyup(function(_1) {
 					var str = inputBox.val();
@@ -5579,12 +5521,11 @@ Main.prototype = $extend(Model.prototype,{
 						if(str != "") {
 							_gthis.base.parseTypeVal(t3,str);
 						}
-						_gthis.setErrorMessage();
 						inputBox.removeClass("error");
 					} catch( msg ) {
 						var msg1 = ((msg) instanceof js__$Boot_HaxeError) ? msg.val : msg;
 						if(typeof(msg1) == "string") {
-							_gthis.setErrorMessage(msg1);
+							_gthis.window.window.alert(msg1);
 							inputBox.addClass("error");
 						} else {
 							throw msg;
@@ -5610,15 +5551,15 @@ Main.prototype = $extend(Model.prototype,{
 			_gthis.changed(sheet,column,rowIndex,old);
 			break;
 		case 5:
-			var values = _g.values;
+			var values = _g21.values;
 			v.empty();
 			v.addClass("edit");
 			var select = $("<select>");
 			v.append(select);
-			var _g4 = 0;
-			var _g11 = values.length;
-			while(_g4 < _g11) {
-				var i = _g4++;
+			var _g25 = 0;
+			var _g31 = values.length;
+			while(_g25 < _g31) {
+				var i = _g25++;
 				var tmp5 = $("<option>");
 				var tmp6 = val == i ? "selected" : "_sel";
 				tmp5.attr("value","" + i).attr(tmp6,"selected").text(values[i]).appendTo(select);
@@ -5667,7 +5608,7 @@ Main.prototype = $extend(Model.prototype,{
 			select[0].dispatchEvent(event);
 			break;
 		case 6:
-			var sname = _g.sheet;
+			var sname = _g21.sheet;
 			var sdat = this.base.getSheet(sname);
 			if(sdat == null) {
 				return;
@@ -5675,15 +5616,15 @@ Main.prototype = $extend(Model.prototype,{
 			v.empty();
 			v.addClass("edit");
 			var select1 = $("<select>");
-			var _g5 = [];
-			var _g12 = 0;
-			var _g21 = sdat.all;
-			while(_g12 < _g21.length) {
-				var d = _g21[_g12];
-				++_g12;
-				_g5.push({ id : d.id, ico : d.ico, text : d.disp});
+			var _g26 = [];
+			var _g32 = 0;
+			var _g4 = sdat.all;
+			while(_g32 < _g4.length) {
+				var d = _g4[_g32];
+				++_g32;
+				_g26.push({ id : d.id, ico : d.ico, text : d.disp});
 			}
-			var elts = _g5;
+			var elts = _g26;
 			if(column.opt || val == null || val == "") {
 				elts.unshift({ id : "~", ico : null, text : "--- None ---"});
 			}
@@ -5782,16 +5723,16 @@ Main.prototype = $extend(Model.prototype,{
 			}
 			break;
 		case 9:
-			var _g22 = _g.name;
+			var _g41 = _g21.name;
 			v.empty();
 			var inputBox1 = $(column.type == cdb_ColumnType.TString ? "<textarea>" : "<input>");
 			v.addClass("edit");
 			inputBox1.appendTo(v);
 			if(val != null) {
-				var _g6 = column.type;
-				switch(_g6._hx_index) {
+				var _g27 = column.type;
+				switch(_g27._hx_index) {
 				case 9:
-					var t4 = _g6.name;
+					var t4 = _g27.name;
 					var tmp8 = this.base.typeValToString(this.base.getCustomType(t4),val);
 					inputBox1.val(tmp8);
 					break;
@@ -5857,8 +5798,8 @@ Main.prototype = $extend(Model.prototype,{
 					}
 				} else {
 					var val21;
-					var _g7 = column.type;
-					switch(_g7._hx_index) {
+					var _g28 = column.type;
+					switch(_g28._hx_index) {
 					case 0:
 						val21 = _gthis.base.r_ident.match(newValue1) ? newValue1 : null;
 						break;
@@ -5870,7 +5811,7 @@ Main.prototype = $extend(Model.prototype,{
 						val21 = isNaN(f1) ? null : f1;
 						break;
 					case 9:
-						var t5 = _g7.name;
+						var t5 = _g28.name;
 						try {
 							val21 = _gthis.base.parseTypeVal(_gthis.base.getCustomType(t5),newValue1);
 						} catch( e13 ) {
@@ -5941,9 +5882,9 @@ Main.prototype = $extend(Model.prototype,{
 					return;
 				}
 			});
-			var _g8 = column.type;
-			if(_g8._hx_index == 9) {
-				var t6 = _g8.name;
+			var _g29 = column.type;
+			if(_g29._hx_index == 9) {
+				var t6 = _g29.name;
 				var t7 = this.base.getCustomType(t6);
 				inputBox1.keyup(function(_5) {
 					var str1 = inputBox1.val();
@@ -5951,12 +5892,11 @@ Main.prototype = $extend(Model.prototype,{
 						if(str1 != "") {
 							_gthis.base.parseTypeVal(t7,str1);
 						}
-						_gthis.setErrorMessage();
 						inputBox1.removeClass("error");
 					} catch( msg2 ) {
 						var msg3 = ((msg2) instanceof js__$Boot_HaxeError) ? msg2.val : msg2;
 						if(typeof(msg3) == "string") {
-							_gthis.setErrorMessage(msg3);
+							_gthis.window.window.alert(msg3);
 							inputBox1.addClass("error");
 						} else {
 							throw msg2;
@@ -5968,7 +5908,7 @@ Main.prototype = $extend(Model.prototype,{
 			inputBox1.select();
 			break;
 		case 10:
-			var values1 = _g.values;
+			var values1 = _g21.values;
 			var div = $("<div>").addClass("flagValues");
 			div.click(function(e17) {
 				e17.stopPropagation();
@@ -5976,10 +5916,10 @@ Main.prototype = $extend(Model.prototype,{
 			div.dblclick(function(e18) {
 				e18.stopPropagation();
 			});
-			var _g9 = 0;
-			var _g13 = values1.length;
-			while(_g9 < _g13) {
-				var i2 = [_g9++];
+			var _g210 = 0;
+			var _g33 = values1.length;
+			while(_g210 < _g33) {
+				var i2 = [_g210++];
 				var input2 = $("<input>");
 				input2.attr("type","checkbox");
 				input2.prop("checked",(val & 1 << i2[0]) != 0);
@@ -6025,7 +5965,7 @@ Main.prototype = $extend(Model.prototype,{
 			spect.spectrum("show");
 			break;
 		case 12:
-			var _g51 = _g.type;
+			var _g7 = _g21.type;
 			throw new js__$Boot_HaxeError("assert2");
 		case 13:
 			v.empty();
@@ -6108,7 +6048,7 @@ Main.prototype = $extend(Model.prototype,{
 		}
 	}
 	,refresh: function() {
-		console.log("src/Main.hx:1674:","Refresh...");
+		console.log("src/Main.hx:1617:","Refresh...");
 		var content = $("#content");
 		content.empty();
 		var t = $("<table>");
@@ -6120,7 +6060,7 @@ Main.prototype = $extend(Model.prototype,{
 		t.appendTo(content);
 		$("<div>").appendTo(content).addClass("tableBottom");
 		this.updateCursor();
-		console.log("src/Main.hx:1686:","Refresh finished.");
+		console.log("src/Main.hx:1629:","Refresh finished.");
 	}
 	,makeRelativePath: function(path) {
 		if(this.prefs.curFile == null) {
@@ -6889,7 +6829,7 @@ Main.prototype = $extend(Model.prototype,{
 			}
 		}
 		if(sheet.sheet.lines.length == 0) {
-			var l4 = $("<tr><td colspan=\"" + (sheet.sheet.columns.length + 1) + "\"><a href=\"javascript:_.insertLine()\">Insert Line</a></td></tr>");
+			var l4 = $("<tr><td colspan=\"" + (sheet.sheet.columns.length + 1) + "\"><a href=\"javascript:_.insertLine()\">Insert Row</a></td></tr>");
 			l4.find("a").click(function(_12) {
 				_gthis.setCursor(sheet);
 			});
@@ -6903,7 +6843,7 @@ Main.prototype = $extend(Model.prototype,{
 			while(_g81 < _g9) {
 				var index10 = [_g81++];
 				var l5 = [lines[index10[0]]];
-				var c16 = $("<input type='submit' value='Edit'>");
+				var c16 = $("<a href='#'>Edit</a>");
 				$("<td>").append(c16).prependTo(l5[0]);
 				c16.click((function(l6,index11) {
 					return function(_13) {
@@ -7022,7 +6962,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2306:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2249:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -7031,7 +6971,7 @@ Main.prototype = $extend(Model.prototype,{
 		if(manual == null) {
 			manual = true;
 		}
-		console.log("src/Main.hx:2311:","selectSheet " + s.sheet.name);
+		console.log("src/Main.hx:2254:","selectSheet " + s.sheet.name);
 		this.viewSheet = s;
 		this.pages.curPage = -1;
 		var key = s.sheet.name;
@@ -7159,8 +7099,7 @@ Main.prototype = $extend(Model.prototype,{
 			if(t1 != "") {
 				errors.push("Invalid " + StringTools.htmlEscape(t1));
 			}
-			var tmp = errors.length == 0 ? null : errors.join("<br>");
-			_gthis.setErrorMessage(tmp);
+			_gthis.window.window.alert(errors.length == 0 ? null : errors.join("\n\n"));
 			if(errors.length == 0) {
 				apply.removeAttr("disabled");
 			} else {
@@ -7181,7 +7120,6 @@ Main.prototype = $extend(Model.prototype,{
 		text.val(this.typesStr);
 		cancel.click(function(_1) {
 			_gthis.typesStr = null;
-			_gthis.setErrorMessage();
 			_gthis.rollbackSnapshot(op);
 			_gthis.initContent();
 		});
@@ -7863,6 +7801,150 @@ Main.prototype = $extend(Model.prototype,{
 			i3.appendTo($("body"));
 			i3.click();
 		};
+		var mi_edit = new js_node_webkit_MenuItem({ label : "Edit"});
+		var m_edit = new js_node_webkit_Menu();
+		mi_edit.submenu = m_edit;
+		var mi_undo = new js_node_webkit_MenuItem({ label : "Undo", key : "Z", modifiers : modifier});
+		mi_undo.click = function() {
+			if(_gthis.pages.curPage < 0) {
+				_gthis.doUndo();
+			}
+		};
+		var mi_redo = new js_node_webkit_MenuItem({ label : "Redo", key : "Y", modifiers : modifier});
+		mi_redo.click = function() {
+			if(_gthis.pages.curPage < 0) {
+				_gthis.doRedo();
+			}
+		};
+		var mi_cut = new js_node_webkit_MenuItem({ label : "Cut", key : "X", modifiers : modifier});
+		mi_cut.click = function() {
+			if(_gthis.isInCDB()) {
+				_gthis.doCopy();
+				_gthis.doDeleteSelectedRow();
+			}
+		};
+		var mi_copy = new js_node_webkit_MenuItem({ label : "Copy", key : "C", modifiers : modifier});
+		mi_copy.click = function() {
+			if(_gthis.isInCDB()) {
+				_gthis.doCopy();
+			}
+		};
+		var mi_paste = new js_node_webkit_MenuItem({ label : "Paste", key : "V", modifiers : modifier});
+		mi_paste.click = function() {
+			if(_gthis.isInCDB()) {
+				_gthis.doPaste();
+			}
+		};
+		var mi_find = new js_node_webkit_MenuItem({ label : "Find", key : "F", modifiers : modifier});
+		mi_find.click = function() {
+			if(!_gthis.isInCDB()) {
+				return;
+			}
+			var s = $("#search");
+			s.show();
+			s.find("input").focus().select();
+		};
+		var mi = mi_undo;
+		m_edit.append(mi);
+		var mi1 = mi_redo;
+		m_edit.append(mi1);
+		var mi2 = msep;
+		m_edit.append(mi2);
+		var mi3 = mi_cut;
+		m_edit.append(mi3);
+		var mi4 = mi_copy;
+		m_edit.append(mi4);
+		var mi5 = mi_paste;
+		m_edit.append(mi5);
+		var mi6 = msep;
+		m_edit.append(mi6);
+		var mi7 = mi_find;
+		m_edit.append(mi7);
+		this.editMenu = m_edit;
+		var mi_sheet = new js_node_webkit_MenuItem({ label : "Sheet"});
+		var m_sheet = new js_node_webkit_Menu();
+		mi_sheet.submenu = m_sheet;
+		var mi_newSheet = new js_node_webkit_MenuItem({ label : "New Sheet..."});
+		mi_newSheet.click = $bind(this,this.newSheet);
+		var mi_newColumn = new js_node_webkit_MenuItem({ label : "New Column..."});
+		mi_newColumn.click = function() {
+			_gthis.newColumn();
+		};
+		var mi_newRow = new js_node_webkit_MenuItem({ label : "New Row", key : "Insert"});
+		mi_newRow.click = function() {
+			if(!_gthis.isInCDB()) {
+				return;
+			}
+			if(_gthis.cursor.s == null) {
+				return;
+			}
+			_gthis.newLine(_gthis.cursor.s,_gthis.cursor.y);
+			_gthis.moveCursor(0,1,false,false);
+		};
+		var mi_ref1 = new js_node_webkit_MenuItem({ label : "Show References", key : "F3"});
+		mi_ref1.click = function() {
+			if(_gthis.isInCDB() && _gthis.cursor.s != null) {
+				_gthis.showReferences(_gthis.cursor.s,_gthis.cursor.y);
+			}
+		};
+		var mi_ref2 = new js_node_webkit_MenuItem({ label : "Go To Reference", key : "F4"});
+		mi_ref2.click = function() {
+			if(_gthis.isInCDB()) {
+				_gthis.openTableReferencedBySelectedCell();
+			}
+		};
+		var goToNextSheet = function(delta) {
+			var _g2 = [];
+			var _g11 = 0;
+			var _g21 = _gthis.base.sheets;
+			while(_g11 < _g21.length) {
+				var v = _g21[_g11];
+				++_g11;
+				if(!v.sheet.props.hide) {
+					_g2.push(v);
+				}
+			}
+			var sheets = _g2;
+			var pos = (_gthis.level == null ? Lambda.indexOf(sheets,_gthis.viewSheet) : sheets.length + Lambda.indexOf(_gthis.levels,_gthis.level)) + delta;
+			if(pos == -1) {
+				pos = sheets.length + _gthis.levels.length;
+			}
+			var s1 = sheets[pos % (sheets.length + _gthis.levels.length)];
+			if(s1 != null) {
+				_gthis.selectSheet(s1);
+			} else {
+				var level = _gthis.levels[pos - sheets.length];
+				if(level != null) {
+					_gthis.selectLevel(level);
+				}
+			}
+		};
+		var mi_nextSheet = new js_node_webkit_MenuItem({ label : "Next Sheet", key : "Tab", modifiers : modifier});
+		mi_nextSheet.click = function() {
+			goToNextSheet(1);
+		};
+		var mi_prevSheet = new js_node_webkit_MenuItem({ label : "Previous Sheet", key : "Tab", modifiers : modifier + "+shift"});
+		mi_prevSheet.click = function() {
+			goToNextSheet(-1);
+		};
+		var mi8 = mi_newSheet;
+		m_sheet.append(mi8);
+		var mi9 = mi_newColumn;
+		m_sheet.append(mi9);
+		var mi10 = mi_newRow;
+		m_sheet.append(mi10);
+		var mi11 = msep;
+		m_sheet.append(mi11);
+		var mi12 = mi_ref1;
+		m_sheet.append(mi12);
+		var mi13 = mi_ref2;
+		m_sheet.append(mi13);
+		var mi14 = msep;
+		m_sheet.append(mi14);
+		var mi15 = mi_nextSheet;
+		m_sheet.append(mi15);
+		var mi16 = mi_prevSheet;
+		m_sheet.append(mi16);
 		this.window.zoomLevel = this.prefs.zoomLevel;
 		var mi_view = new js_node_webkit_MenuItem({ label : "View"});
 		var m_view = new js_node_webkit_Menu();
@@ -7885,9 +7967,9 @@ Main.prototype = $extend(Model.prototype,{
 		m_view.append(mi_hideInlineIcons);
 		m_view.append(new js_node_webkit_MenuItem({ type : "separator"}));
 		var mi_zoomLevels_h = { };
-		var _g2 = -4;
-		while(_g2 < 7) {
-			var i4 = [_g2++];
+		var _g22 = -4;
+		while(_g22 < 7) {
+			var i4 = [_g22++];
 			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "Zoom " + Math.round(Math.pow(1.2,i4[0]) * 100) + "%", type : "checkbox"})];
 			mi_zoom_n[0].click = (function(mi_zoom_n1,i5) {
 				return function() {
@@ -7914,7 +7996,9 @@ Main.prototype = $extend(Model.prototype,{
 			menu.insert(mfile,0);
 		} else {
 			menu.append(mfile);
+			menu.append(mi_edit);
 			menu.append(mi_view);
+			menu.append(mi_sheet);
 		}
 		this.window.menu = menu;
 		if(this.prefs.windowPos.x > 0 && this.prefs.windowPos.y > 0) {
@@ -7928,8 +8012,8 @@ Main.prototype = $extend(Model.prototype,{
 			this.window.maximize();
 		}
 		this.window.on("close",function() {
-			if(_gthis.prefs.curFile == null && _gthis.base.sheets.length > 0) {
-				if(!window.confirm("Do you want to exit without saving your changes?")) {
+			if(_gthis.opStack.hasUnsavedChanges()) {
+				if(!window.confirm("Quit without saving changes?")) {
 					return;
 				}
 			}

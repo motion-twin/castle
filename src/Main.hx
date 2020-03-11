@@ -132,18 +132,6 @@ class Main extends Model {
 		};
 		pages = new JqPages(this);
 
-		/*
-		// is there any way to prevent the window from closing?
-		// the docs say this should work but it doesn't
-		window.on("close", function(_) {
-			if (opStack.hasUnsavedChanges()) {
-				var path = prefs.curFile.substr(0, prefs.curFile.lastIndexOf(".")) + " [perhaps you forgot to save before closing].cdb";
-				var json = cdb.Parser.saveMonofile(base.data, true);
-				sys.io.File.saveContent(path, json);
-			}
-		});
-		*/
-
 		load(true);
 	}
 
@@ -3037,8 +3025,8 @@ save();
 		window.show();
 		if( prefs.windowPos.max ) window.maximize();
 		window.on('close', function() {
-			if( prefs.curFile == null && base.sheets.length > 0 ) {
-				if( !js.Browser.window.confirm("Do you want to exit without saving your changes?") )
+			if( opStack.hasUnsavedChanges() ) {
+				if( !js.Browser.window.confirm("Quit without saving changes?") )
 					return;
 			}
 			if( !prefs.windowPos.max )

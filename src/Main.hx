@@ -130,6 +130,19 @@ class Main extends Model {
 			y : 0,
 		};
 		pages = new JqPages(this);
+
+		/*
+		// is there any way to prevent the window from closing?
+		// the docs say this should work but it doesn't
+		window.on("close", function(_) {
+			if (opStack.hasUnsavedChanges()) {
+				var path = prefs.curFile.substr(0, prefs.curFile.lastIndexOf(".")) + " [perhaps you forgot to save before closing].cdb";
+				var json = cdb.Parser.saveMonofile(base.data, true);
+				sys.io.File.saveContent(path, json);
+			}
+		});
+		*/
+
 		load(true);
 	}
 

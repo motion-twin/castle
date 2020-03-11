@@ -843,7 +843,15 @@ save();
 			else {
 				var s = base.getSheet(sname);
 				var i = s.index.get(v);
-				i == null ? '<span class="error">#REF($v)</span>' : (i.ico == null ? "" : tileHtml(i.ico,true)+" ") + StringTools.htmlEscape(i.disp);
+				if (i == null) {
+					return '<span class="error">#REF($v)</span>';
+				} else {
+					var output = "";
+					if (!prefs.hideInlineIcons && i.ico != null)
+						output += tileHtml(i.ico, true);
+					output += StringTools.htmlEscape(i.disp);
+					return output;
+				}
 			}
 		case TBool:
 			v?"Y":"N";
@@ -861,7 +869,9 @@ save();
 			}
 		case TList:
 			var a : Array<Dynamic> = v;
-			#if 1
+			if (prefs.hideListPreviews) {
+				return '<span class="array-shortened">List (</span>${a.length}<span class="array-shortened">)</span>';
+			}
 			var ps = sheet.getSub(c);
 			var out : Array<String> = [];
 			var size = 0;
@@ -891,9 +901,6 @@ save();
 			if( out.length == 0 )
 				return "";
 			return out.join(", ");
-			#else
-			return '<span class="array-shortened">List (</span>${a.length}<span class="array-shortened">)</span>';
-			#end
 		case TProperties:
 			var ps = sheet.getSub(c);
 			var out = [];
@@ -2884,15 +2891,34 @@ save();
 
 		};
 
-
-		trace(prefs.zoomLevel);
 		window.zoomLevel = prefs.zoomLevel;
-		var mi_zoom = new MenuItem({label: "Zoom"});
-		var m_zoom = new Menu();
-		mi_zoom.submenu = m_zoom;
+		var mi_view = new MenuItem({label: "View"});
+		var m_view = new Menu();
+		mi_view.submenu = m_view;
+
+		var mi_hideListPreviews = new MenuItem({label: "Hide List Previews", type: checkbox});
+		mi_hideListPreviews.checked = prefs.hideListPreviews;
+		mi_hideListPreviews.click = function() {
+			prefs.hideListPreviews = !prefs.hideListPreviews;
+			mi_hideListPreviews.checked = prefs.hideListPreviews;
+			refresh();
+		};
+		m_view.append(mi_hideListPreviews);
+
+		var mi_hideInlineIcons = new MenuItem({label: "Hide Inline Icons", type: checkbox});
+		mi_hideInlineIcons.checked = prefs.hideInlineIcons;
+		mi_hideInlineIcons.click = function() {
+			prefs.hideInlineIcons = !prefs.hideInlineIcons;
+			mi_hideInlineIcons.checked = prefs.hideInlineIcons;
+			refresh();
+		};
+		m_view.append(mi_hideInlineIcons);
+
+		m_view.append(new MenuItem({type: separator}));
+
 		var mi_zoomLevels = new Map<Int, MenuItem>();
 		for (i in -4...7) {
-			var mi_zoom_n = new MenuItem({label: "" + Math.round(Math.pow(1.2, i) * 100) + "%", type: checkbox});
+			var mi_zoom_n = new MenuItem({label: "Zoom " + Math.round(Math.pow(1.2, i) * 100) + "%", type: checkbox});
 			mi_zoom_n.click = function() {
 				if (mi_zoomLevels.exists(window.zoomLevel))
 					mi_zoomLevels[window.zoomLevel].checked = false;
@@ -2901,7 +2927,7 @@ save();
 				prefs.zoomLevel = window.zoomLevel;
 				savePrefs();
 			};
-			m_zoom.append(mi_zoom_n);
+			m_view.append(mi_zoom_n);
 			mi_zoomLevels[i] = mi_zoom_n;
 		}
 		if (mi_zoomLevels.exists(window.zoomLevel))
@@ -2918,7 +2944,7 @@ save();
 		else {
 			menu.append(mfile);
 //			menu.append(mi_edit);
-			menu.append(mi_zoom);
+			menu.append(mi_view);
 		}
 
 		window.menu = menu;

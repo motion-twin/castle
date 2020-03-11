@@ -21,6 +21,8 @@ typedef Prefs = {
 	curSheet : Int,
 	recent : Array<String>,
 	zoomLevel : Int,
+	hideListPreviews : Bool,
+	hideInlineIcons : Bool,
 }
 
 class Model {
@@ -47,6 +49,8 @@ class Model {
 			curSheet : 0,
 			recent : [],
 			zoomLevel: 0,
+			hideListPreviews: false,
+			hideInlineIcons: false,
 		};
 		existsCache = new Map();
 		loadPrefs();

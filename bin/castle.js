@@ -3743,7 +3743,7 @@ $hxClasses["K"] = K;
 K.__name__ = "K";
 var Model = function() {
 	this.openedList = new haxe_ds_StringMap();
-	this.prefs = { windowPos : { x : 50, y : 50, w : 800, h : 600, max : false}, curFile : null, curSheet : 0, recent : [], zoomLevel : 0};
+	this.prefs = { windowPos : { x : 50, y : 50, w : 800, h : 600, max : false}, curFile : null, curSheet : 0, recent : [], zoomLevel : 0, hideListPreviews : false, hideInlineIcons : false};
 	this.existsCache = new haxe_ds_StringMap();
 	this.loadPrefs();
 };
@@ -3805,7 +3805,7 @@ Model.prototype = {
 				success = true;
 			} catch( err ) {
 				var err1 = ((err) instanceof js__$Boot_HaxeError) ? err.val : err;
-				console.log("src/Model.hx:99:",err1);
+				console.log("src/Model.hx:103:",err1);
 				window.alert(Std.string("An error occurred while saving:\n\n" + Std.string(err1)));
 			}
 			window.setTimeout(function() {
@@ -4839,7 +4839,12 @@ Main.prototype = $extend(Model.prototype,{
 				if(i == null) {
 					return "<span class=\"error\">#REF(" + Std.string(v) + ")</span>";
 				} else {
-					return (i.ico == null ? "" : this.tileHtml(i.ico,true) + " ") + StringTools.htmlEscape(i.disp);
+					var output = "";
+					if(!this.prefs.hideInlineIcons && i.ico != null) {
+						output += this.tileHtml(i.ico,true);
+					}
+					output += StringTools.htmlEscape(i.disp);
+					return output;
 				}
 			}
 			break;
@@ -4857,6 +4862,9 @@ Main.prototype = $extend(Model.prototype,{
 			break;
 		case 8:
 			var a = v;
+			if(this.prefs.hideListPreviews) {
+				return "<span class=\"array-shortened\">List (</span>" + a.length + "<span class=\"array-shortened\">)</span>";
+			}
 			var ps = sheet.base.getSheet(sheet.sheet.name + "@" + c.name);
 			var out = [];
 			var size = 0;
@@ -4999,39 +5007,69 @@ Main.prototype = $extend(Model.prototype,{
 	,popupLine: function(sheet,index) {
 		var _gthis = this;
 		var n = new js_node_webkit_Menu();
+		var ___ = new js_node_webkit_MenuItem({ type : "separator"});
 		var nup = new js_node_webkit_MenuItem({ label : "Move Up"});
 		var ndown = new js_node_webkit_MenuItem({ label : "Move Down"});
-		var nins = new js_node_webkit_MenuItem({ label : "Insert"});
+		var nsetidx = new js_node_webkit_MenuItem({ label : "Move To Index..."});
+		var nins = new js_node_webkit_MenuItem({ label : "Insert Below"});
 		var ndel = new js_node_webkit_MenuItem({ label : "Delete"});
-		var nsep = new js_node_webkit_MenuItem({ label : "Separator", type : "checkbox"});
+		var nsep = new js_node_webkit_MenuItem({ label : "New Separator Above", type : "checkbox"});
 		var nref = new js_node_webkit_MenuItem({ label : "Show References"});
 		var m = nup;
 		n.append(m);
 		var m1 = ndown;
 		n.append(m1);
-		var m2 = nins;
+		var m2 = nsetidx;
 		n.append(m2);
-		var m3 = ndel;
+		var m3 = ___;
 		n.append(m3);
-		var m4 = nsep;
+		var m4 = nins;
 		n.append(m4);
-		var m5 = nref;
+		var m5 = ndel;
 		n.append(m5);
+		var m6 = nsep;
+		n.append(m6);
+		var m7 = ___;
+		n.append(m7);
+		var m8 = nref;
+		n.append(m8);
 		var sepIndex = Lambda.indexOf(sheet.sheet.separators,index);
 		nsep.checked = sepIndex >= 0;
 		nins.click = function() {
 			_gthis.newLine(sheet,index);
 		};
 		nup.click = function() {
-			sheet.moveLine(_gthis.opStack,index,-1);
+			var newIndex = sheet.moveLine(_gthis.opStack,index,-1);
+			_gthis.setCursor(sheet,-1,newIndex);
 		};
 		ndown.click = function() {
-			sheet.moveLine(_gthis.opStack,index,1);
+			var newIndex1 = sheet.moveLine(_gthis.opStack,index,1);
+			_gthis.setCursor(sheet,-1,newIndex1);
 		};
 		ndel.click = function() {
 			var op = _gthis.prepSnapshot();
 			sheet.deleteLine(index);
 			_gthis.commitSnapshot(op);
+		};
+		nsetidx.click = function() {
+			var captionSuffix = "";
+			var newIndex2 = index;
+			while(true) {
+				var caption = "Enter new index for row #" + index + " (min=0, max=" + (sheet.sheet.lines.length - 1) + ")" + captionSuffix;
+				var newIndexStr = _gthis.window.window.prompt(caption,"" + index);
+				if(newIndexStr == null) {
+					return;
+				}
+				var parsedIndex = Std.parseInt(newIndexStr);
+				if(parsedIndex == null || parsedIndex < 0 || parsedIndex >= sheet.sheet.lines.length) {
+					captionSuffix = "\n⚠ You entered an illegal value";
+					continue;
+				}
+				newIndex2 = parsedIndex;
+				break;
+			}
+			_gthis.opStack.push(new ops_RowMove(sheet.getNestedPos(index),newIndex2));
+			_gthis.setCursor(sheet,-1,newIndex2);
 		};
 		nsep.click = function() {
 			var op1 = _gthis.prepSnapshot();
@@ -5370,7 +5408,7 @@ Main.prototype = $extend(Model.prototype,{
 			v.removeClass("edit");
 			_gthis.setErrorMessage();
 			if(rowModifyOp.isUseless()) {
-				console.log("src/Main.hx:1252:","last operation was useless");
+				console.log("src/Main.hx:1291:","last operation was useless");
 				_gthis.opStack.removeLastOp(rowModifyOp);
 			}
 		};
@@ -6074,7 +6112,7 @@ Main.prototype = $extend(Model.prototype,{
 		}
 	}
 	,refresh: function() {
-		console.log("src/Main.hx:1635:","Refresh...");
+		console.log("src/Main.hx:1674:","Refresh...");
 		var content = $("#content");
 		content.empty();
 		var t = $("<table>");
@@ -6086,7 +6124,7 @@ Main.prototype = $extend(Model.prototype,{
 		t.appendTo(content);
 		$("<div>").appendTo(content).addClass("tableBottom");
 		this.updateCursor();
-		console.log("src/Main.hx:1647:","Refresh finished.");
+		console.log("src/Main.hx:1686:","Refresh finished.");
 	}
 	,makeRelativePath: function(path) {
 		if(this.prefs.curFile == null) {
@@ -6210,6 +6248,13 @@ Main.prototype = $extend(Model.prototype,{
 			})(td1,c);
 			td1[0].dblclick(tmp1);
 		}
+		available.sort(function(a,b) {
+			if(a.name < b.name) {
+				return -1;
+			} else {
+				return 1;
+			}
+		});
 		var end = $("<tr>").appendTo(content);
 		end = $("<td>").attr("colspan","2").appendTo(end);
 		var sel = $("<select>").appendTo(end);
@@ -6981,7 +7026,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2264:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2306:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -6990,7 +7035,7 @@ Main.prototype = $extend(Model.prototype,{
 		if(manual == null) {
 			manual = true;
 		}
-		console.log("src/Main.hx:2269:","selectSheet " + s.sheet.name);
+		console.log("src/Main.hx:2311:","selectSheet " + s.sheet.name);
 		this.viewSheet = s;
 		this.pages.curPage = -1;
 		var key = s.sheet.name;
@@ -7674,6 +7719,7 @@ Main.prototype = $extend(Model.prototype,{
 		var msave = new js_node_webkit_MenuItem({ label : "Save", key : "S", modifiers : modifier});
 		var msaveas = new js_node_webkit_MenuItem({ label : "Save As...", key : "S", modifiers : "shift+" + modifier});
 		var msaveasmonofile = new js_node_webkit_MenuItem({ label : "Export Legacy Monofile..."});
+		var mreload = new js_node_webkit_MenuItem({ label : "Reload From Disk", key : "F5"});
 		var mclean = new js_node_webkit_MenuItem({ label : "Clean Images"});
 		var mexport = new js_node_webkit_MenuItem({ label : "Export Localized texts"});
 		this.mcompress = new js_node_webkit_MenuItem({ label : "Enable Compression", type : "checkbox"});
@@ -7721,6 +7767,15 @@ Main.prototype = $extend(Model.prototype,{
 			i2.appendTo($("body"));
 			i2.click();
 		};
+		mreload.click = function() {
+			var doReload = true;
+			if(_gthis.opStack.hasUnsavedChanges()) {
+				doReload = _gthis.window.window.confirm("There are unsaved changes.\nReload anyway?");
+			}
+			if(doReload) {
+				_gthis.load();
+			}
+		};
 		mclean.click = function() {
 			var op = _gthis.prepSnapshot();
 			var lcount = _gthis.base.cleanLayers();
@@ -7766,26 +7821,39 @@ Main.prototype = $extend(Model.prototype,{
 			mrecents.append(m);
 		}
 		mrecent.submenu = mrecents;
+		var msep = new js_node_webkit_MenuItem({ type : "separator"});
 		var m1 = mnew;
 		mfiles.append(m1);
-		var m2 = mopen;
+		var m2 = msep;
 		mfiles.append(m2);
-		var m3 = mrecent;
+		var m3 = mopen;
 		mfiles.append(m3);
-		var m4 = msave;
+		var m4 = mrecent;
 		mfiles.append(m4);
-		var m5 = msaveas;
+		var m5 = msep;
 		mfiles.append(m5);
-		var m6 = msaveasmonofile;
+		var m6 = msave;
 		mfiles.append(m6);
-		var m7 = mclean;
+		var m7 = msaveas;
 		mfiles.append(m7);
-		var m8 = this.mcompress;
+		var m8 = msaveasmonofile;
 		mfiles.append(m8);
-		var m9 = mexport;
+		var m9 = msep;
 		mfiles.append(m9);
-		var m10 = mexit;
+		var m10 = mreload;
 		mfiles.append(m10);
+		var m11 = msep;
+		mfiles.append(m11);
+		var m12 = mclean;
+		mfiles.append(m12);
+		var m13 = this.mcompress;
+		mfiles.append(m13);
+		var m14 = mexport;
+		mfiles.append(m14);
+		var m15 = msep;
+		mfiles.append(m15);
+		var m16 = mexit;
+		mfiles.append(m16);
 		mfile.submenu = mfiles;
 		mexport.click = function() {
 			var lang = new cdb_Lang(_gthis.base.data);
@@ -7799,16 +7867,32 @@ Main.prototype = $extend(Model.prototype,{
 			i3.appendTo($("body"));
 			i3.click();
 		};
-		console.log("src/Main.hx:2872:",this.prefs.zoomLevel);
 		this.window.zoomLevel = this.prefs.zoomLevel;
-		var mi_zoom = new js_node_webkit_MenuItem({ label : "Zoom"});
-		var m_zoom = new js_node_webkit_Menu();
-		mi_zoom.submenu = m_zoom;
+		var mi_view = new js_node_webkit_MenuItem({ label : "View"});
+		var m_view = new js_node_webkit_Menu();
+		mi_view.submenu = m_view;
+		var mi_hideListPreviews = new js_node_webkit_MenuItem({ label : "Hide List Previews", type : "checkbox"});
+		mi_hideListPreviews.checked = this.prefs.hideListPreviews;
+		mi_hideListPreviews.click = function() {
+			_gthis.prefs.hideListPreviews = !_gthis.prefs.hideListPreviews;
+			mi_hideListPreviews.checked = _gthis.prefs.hideListPreviews;
+			_gthis.refresh();
+		};
+		m_view.append(mi_hideListPreviews);
+		var mi_hideInlineIcons = new js_node_webkit_MenuItem({ label : "Hide Inline Icons", type : "checkbox"});
+		mi_hideInlineIcons.checked = this.prefs.hideInlineIcons;
+		mi_hideInlineIcons.click = function() {
+			_gthis.prefs.hideInlineIcons = !_gthis.prefs.hideInlineIcons;
+			mi_hideInlineIcons.checked = _gthis.prefs.hideInlineIcons;
+			_gthis.refresh();
+		};
+		m_view.append(mi_hideInlineIcons);
+		m_view.append(new js_node_webkit_MenuItem({ type : "separator"}));
 		var mi_zoomLevels_h = { };
 		var _g2 = -4;
 		while(_g2 < 7) {
 			var i4 = [_g2++];
-			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "" + Math.round(Math.pow(1.2,i4[0]) * 100) + "%", type : "checkbox"})];
+			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "Zoom " + Math.round(Math.pow(1.2,i4[0]) * 100) + "%", type : "checkbox"})];
 			mi_zoom_n[0].click = (function(mi_zoom_n1,i5) {
 				return function() {
 					if(mi_zoomLevels_h.hasOwnProperty(_gthis.window.zoomLevel)) {
@@ -7820,7 +7904,7 @@ Main.prototype = $extend(Model.prototype,{
 					_gthis.savePrefs();
 				};
 			})(mi_zoom_n,i4);
-			m_zoom.append(mi_zoom_n[0]);
+			m_view.append(mi_zoom_n[0]);
 			mi_zoomLevels_h[i4[0]] = mi_zoom_n[0];
 		}
 		if(mi_zoomLevels_h.hasOwnProperty(this.window.zoomLevel)) {
@@ -7834,7 +7918,7 @@ Main.prototype = $extend(Model.prototype,{
 			menu.insert(mfile,0);
 		} else {
 			menu.append(mfile);
-			menu.append(mi_zoom);
+			menu.append(mi_view);
 		}
 		this.window.menu = menu;
 		if(this.prefs.windowPos.x > 0 && this.prefs.windowPos.y > 0) {
@@ -7890,7 +7974,7 @@ Main.prototype = $extend(Model.prototype,{
 			history = true;
 		}
 		Model.prototype.save.call(this,history);
-		console.log("src/Main.hx:2955:","Finish Saving");
+		console.log("src/Main.hx:3037:","Finish Saving");
 	}
 	,nuclearSave: function(history) {
 		if(history == null) {
@@ -7963,11 +8047,15 @@ OperationStack.prototype = {
 			console.log("src/OperationStack.hx:82:","can't remove last op");
 		}
 	}
-	,checkSavePoint: function() {
+	,checkSavePoint: function(forceQueryTag) {
+		if(forceQueryTag == null) {
+			forceQueryTag = false;
+		}
 		if(this.savePoint != this.cursor) {
 			this.context.window.title = "[*] CastleDB: " + this.context.prefs.curFile;
 			if(this.unsavedCSSLinkTag == null) {
 				this.unsavedCSSLinkTag = window.document.createElement("link");
+				this.unsavedCSSLinkTag.id = "unsavedstylesheet";
 				this.unsavedCSSLinkTag.rel = "stylesheet";
 				this.unsavedCSSLinkTag.type = "text/css";
 				this.unsavedCSSLinkTag.href = "unsaved.css";
@@ -7975,15 +8063,22 @@ OperationStack.prototype = {
 			}
 		} else {
 			this.context.window.title = "CastleDB: " + this.context.prefs.curFile;
-			if(this.unsavedCSSLinkTag != null) {
-				window.document.body.removeChild(this.unsavedCSSLinkTag);
-				this.unsavedCSSLinkTag = null;
+			var tagToNuke = this.unsavedCSSLinkTag;
+			if(tagToNuke == null && forceQueryTag) {
+				tagToNuke = window.document.getElementById("unsavedstylesheet");
 			}
+			if(tagToNuke != null) {
+				window.document.body.removeChild(tagToNuke);
+			}
+			this.unsavedCSSLinkTag = null;
 		}
 	}
 	,setSavePointHere: function() {
 		this.savePoint = this.cursor;
-		this.checkSavePoint();
+		this.checkSavePoint(true);
+	}
+	,hasUnsavedChanges: function() {
+		return this.savePoint != this.cursor;
 	}
 	,__class__: OperationStack
 };

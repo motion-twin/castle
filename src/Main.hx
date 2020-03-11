@@ -507,11 +507,6 @@ class Main extends Model {
 		case K.F4:
 			openTableReferencedBySelectedCell();
 
-		/*
-		case K.F5:
-			// TODO: reload cdb from disk
-		*/
-
 		// Ctrl-F: find
 		case "F".code if( ctrlDown && inCDB ):
 			var s = J("#search");
@@ -2769,6 +2764,7 @@ save();
 		var msave = new MenuItem( { label : "Save", key : "S", modifiers : modifier } );
 		var msaveas = new MenuItem( { label : "Save As...", key : "S", modifiers : "shift+" + modifier } );
 		var msaveasmonofile = new MenuItem( { label : "Export Legacy Monofile..." } );
+		var mreload = new MenuItem( { label : "Reload From Disk", key : "F5"} );
 		var mclean = new MenuItem( { label : "Clean Images" } );
 		var mexport = new MenuItem( { label : "Export Localized texts" } );
 		mcompress = new MenuItem( { label : "Enable Compression", type : MenuItemType.checkbox } );
@@ -2776,10 +2772,12 @@ save();
 			base.compress = mcompress.checked;
 		};
 		var mexit = new MenuItem( { label : "Exit", key : "Q", modifiers : modifier } );
+
 		mnew.click = function() {
 			prefs.curFile = null;
 			load(true);
 		};
+
 		mopen.click = function() {
 			var i = J("<input>").attr("type", "file").css("display","none").change(function(e) {
 				var j = JTHIS;
@@ -2790,6 +2788,7 @@ save();
 			i.appendTo(J("body"));
 			i.click();
 		};
+
 		msave.click = function() {
 			if (prefs.curFile == "" || prefs.curFile == null) {
 				msaveas.click();
@@ -2797,6 +2796,7 @@ save();
 				nuclearSave();
 			}
 		};
+
 		msaveas.click = function() {
 			var i = J("<input>").attr("type", "file").attr("nwsaveas","new.cdb").css("display","none").change(function(e) {
 				var j = JTHIS;
@@ -2807,6 +2807,7 @@ save();
 			i.appendTo(J("body"));
 			i.click();
 		};
+
 		msaveasmonofile.click = function() {
 			var i = J("<input>").attr("type", "file").attr("nwsaveas","monofile.cdb").css("display","none").change(function(e) {
 				var j = JTHIS;
@@ -2816,6 +2817,17 @@ save();
 			i.appendTo(J("body"));
 			i.click();
 		};
+
+		mreload.click = function() {
+			var doReload = true;
+			if (opStack.hasUnsavedChanges()) {
+				doReload = window.window.confirm("There are unsaved changes.\nReload anyway?");
+			}
+			if (doReload) {
+				load();
+			}
+		};
+
 		mclean.click = function() {
 			var op = prepSnapshot();
 			var lcount = @:privateAccess base.cleanLayers();
@@ -2835,7 +2847,10 @@ save();
 			if( lcount > 0 ) commitSnapshot(op);
 			if( icount > 0 ) saveImages();
 		};
-		mexit.click = function() Sys.exit(0);
+
+		mexit.click = function() {
+			Sys.exit(0);
+		};
 
 		var mrecents = new Menu();
 		for( file in prefs.recent ) {
@@ -2849,7 +2864,8 @@ save();
 		}
 		mrecent.submenu = mrecents;
 
-		for( m in [mnew, mopen, mrecent, msave, msaveas, msaveasmonofile, mclean, mcompress, mexport, mexit] )
+		var msep = new MenuItem({type:separator});
+		for( m in [mnew, msep, mopen, mrecent, msep, msave, msaveas, msaveasmonofile, msep, mreload, msep, mclean, mcompress, mexport, msep, mexit] )
 			mfiles.append(m);
 		mfile.submenu = mfiles;
 

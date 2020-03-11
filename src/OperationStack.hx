@@ -84,11 +84,14 @@ class OperationStack {
 
 	private var unsavedCSSLinkTag : js.html.LinkElement;
 
-	private function checkSavePoint() {
+	// forceQueryTag: necessary after Reload From Disk, which renews the op stack,
+	// and therefore we lose the reference to the existing tag
+	private function checkSavePoint(forceQueryTag : Bool = false) {
 		if (savePoint != cursor) {
 			context.window.title = "[*] CastleDB: " + context.prefs.curFile;
 			if (unsavedCSSLinkTag == null) {
 				unsavedCSSLinkTag = js.Browser.document.createLinkElement();
+				unsavedCSSLinkTag.id = "unsavedstylesheet";
 				unsavedCSSLinkTag.rel = "stylesheet";
 				unsavedCSSLinkTag.type = "text/css";
 				unsavedCSSLinkTag.href = "unsaved.css";
@@ -97,15 +100,23 @@ class OperationStack {
 		}
 		else {
 			context.window.title = "CastleDB: " + context.prefs.curFile;
-			if (unsavedCSSLinkTag != null) {
-				js.Browser.document.body.removeChild(unsavedCSSLinkTag);
-				unsavedCSSLinkTag = null;
+			var tagToNuke : js.html.Element = unsavedCSSLinkTag;
+			if (tagToNuke == null && forceQueryTag) {
+				tagToNuke = js.Browser.document.getElementById("unsavedstylesheet");
 			}
+			if (tagToNuke != null) {
+				js.Browser.document.body.removeChild(tagToNuke);
+			}
+			unsavedCSSLinkTag = null;
 		}
 	}
 
 	public function setSavePointHere() {
 		savePoint = cursor;
-		checkSavePoint();
+		checkSavePoint(true);
+	}
+
+	public function hasUnsavedChanges() : Bool {
+		return savePoint != cursor;
 	}
 }

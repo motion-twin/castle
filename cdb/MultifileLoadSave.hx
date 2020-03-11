@@ -97,7 +97,6 @@ class MultifileLoadSave {
 		}
 	}
 
-#if EDITOR
 	public static function saveMultifileRootSchema(data: Data, schemaPath: String) {
 		var schema : Data = {
 			format : MULTIFILE_FORMAT,
@@ -149,6 +148,7 @@ class MultifileLoadSave {
 		return null;
 	}
 
+#if EDITOR
 	// Delete any files/directories under MULTIFILE_CDB_DIR
 	// that aren't keys in saveStateOnDisk.
 	public static function nukeZombieFiles(data : Database, schemaPath : String)
@@ -186,17 +186,22 @@ class MultifileLoadSave {
 			}
 		}
 	}
+#end
 
 	public static function saveMultifileTableContents(data: Data, schemaPath : String)
 	{
+#if EDITOR
 		saveStateOnDisk = new Map<String, String>();
+#end
 
 		for (table in data.sheets) {
 			_saveTable(table, schemaPath);
 		}
 
+#if EDITOR
 		lastStateOnDisk = saveStateOnDisk;
 		saveStateOnDisk = null;
+#end
 	}
 
 	private static function _saveTable(table: SheetData, schemaPath: String)
@@ -262,13 +267,14 @@ class MultifileLoadSave {
 
 	// Write string to file if absent or different from lastStateOnDisk
 	private static function writeIfDiff(path : String, contents : String) {
+#if EDITOR
 		saveStateOnDisk.set(path, contents);
 
 		if (lastStateOnDisk.get(path) == contents) {
 			return;
 		}
+#end
 
 		sys.io.File.saveContent(path, contents);
 	}
-#end
 }

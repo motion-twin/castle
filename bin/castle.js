@@ -1213,14 +1213,20 @@ Level.prototype = {
 	}
 	,wait: function() {
 		this.waitCount++;
+		var nowLoading = window.document.querySelector("#now-loading-text");
+		nowLoading.className = "";
+		nowLoading.innerText = "Working... " + this.waitCount + "+";
 	}
 	,waitDone: function() {
+		var nowLoading = window.document.querySelector("#now-loading-text");
 		if(--this.waitCount != 0) {
+			nowLoading.innerText = "Working... " + this.waitCount + "-";
 			return;
 		}
 		if(this.isDisposed()) {
 			return;
 		}
+		nowLoading.className = "no-display";
 		this.setup();
 		var layer = this.layers[0];
 		var state;
@@ -6047,20 +6053,29 @@ Main.prototype = $extend(Model.prototype,{
 			e.scrollIntoViewIfNeeded();
 		}
 	}
-	,refresh: function() {
-		console.log("src/Main.hx:1617:","Refresh...");
-		var content = $("#content");
-		content.empty();
-		var t = $("<table>");
-		this.checkCursor = true;
-		this.fillTable(t,this.viewSheet);
-		if(this.cursor.s != this.viewSheet && this.checkCursor) {
-			this.setCursor(this.viewSheet,null,null,null,false);
+	,refresh: function(text) {
+		if(text == null) {
+			text = "Working...";
 		}
-		t.appendTo(content);
-		$("<div>").appendTo(content).addClass("tableBottom");
-		this.updateCursor();
-		console.log("src/Main.hx:1629:","Refresh finished.");
+		var _gthis = this;
+		console.log("src/Main.hx:1617:","Refresh");
+		var nowLoading = window.document.querySelector("#now-loading-text");
+		nowLoading.innerText = text;
+		nowLoading.className = "";
+		window.setTimeout(function() {
+			var content = $("#content");
+			content.empty();
+			var t = $("<table>");
+			_gthis.checkCursor = true;
+			_gthis.fillTable(t,_gthis.viewSheet);
+			if(_gthis.cursor.s != _gthis.viewSheet && _gthis.checkCursor) {
+				_gthis.setCursor(_gthis.viewSheet,null,null,null,false);
+			}
+			t.appendTo(content);
+			$("<div>").appendTo(content).addClass("tableBottom");
+			_gthis.updateCursor();
+			nowLoading.className = "no-display";
+		});
 	}
 	,makeRelativePath: function(path) {
 		if(this.prefs.curFile == null) {
@@ -6861,8 +6876,7 @@ Main.prototype = $extend(Model.prototype,{
 						if(found == null) {
 							found = new Level(_gthis,sheet,index11[0]);
 							_gthis.levels.push(found);
-							_gthis.selectLevel(found);
-							_gthis.initContent();
+							_gthis.selectLevel(found,true);
 						} else {
 							_gthis.selectLevel(found);
 						}
@@ -6962,7 +6976,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2249:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2253:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -6971,7 +6985,6 @@ Main.prototype = $extend(Model.prototype,{
 		if(manual == null) {
 			manual = true;
 		}
-		console.log("src/Main.hx:2254:","selectSheet " + s.sheet.name);
 		this.viewSheet = s;
 		this.pages.curPage = -1;
 		var key = s.sheet.name;
@@ -6997,17 +7010,30 @@ Main.prototype = $extend(Model.prototype,{
 		this.prefs.curSheet = Lambda.indexOf(this.base.sheets,s);
 		$("#sheets li").removeClass("active").filter("#sheet_" + this.prefs.curSheet).addClass("active");
 		if(manual) {
-			this.refresh();
+			this.refresh("Loading " + s.sheet.name + "...");
 		}
 	}
-	,selectLevel: function(l) {
-		if(this.level != null) {
-			this.level.dispose();
+	,selectLevel: function(l,initContentAfterwards) {
+		if(initContentAfterwards == null) {
+			initContentAfterwards = false;
 		}
-		this.pages.curPage = -1;
-		this.level = l;
-		this.level.init();
-		$("#sheets li").removeClass("active").filter("#level_" + l.sheetPath.split(".").join("_") + "_" + l.index).addClass("active");
+		var _gthis = this;
+		var nowLoading = window.document.querySelector("#now-loading-text");
+		nowLoading.innerText = "Working...";
+		nowLoading.className = "";
+		window.setTimeout(function() {
+			nowLoading.className = "no-display";
+			if(_gthis.level != null) {
+				_gthis.level.dispose();
+			}
+			_gthis.pages.curPage = -1;
+			_gthis.level = l;
+			_gthis.level.init();
+			$("#sheets li").removeClass("active").filter("#level_" + l.sheetPath.split(".").join("_") + "_" + l.index).addClass("active");
+			if(initContentAfterwards) {
+				_gthis.initContent();
+			}
+		});
 	}
 	,closeLevel: function(l) {
 		l.dispose();

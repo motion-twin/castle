@@ -331,12 +331,23 @@ class Level {
 
 	public function wait() {
 		waitCount++;
+
+		var nowLoading = js.Browser.document.querySelector("#now-loading-text");
+		nowLoading.className = "";
+		nowLoading.innerText = "Working... " + waitCount + "+";
 	}
 
 	public function waitDone() {
 
-		if( --waitCount != 0 ) return;
+		var nowLoading = js.Browser.document.querySelector("#now-loading-text");
+
+		if( --waitCount != 0 ) {
+			nowLoading.innerText = "Working... " + waitCount + "-";
+			return;
+		}
 		if( isDisposed() ) return;
+
+		nowLoading.className = "no-display";
 
 		setup();
 

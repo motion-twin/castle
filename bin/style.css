@@ -19,25 +19,22 @@
 	display: none;
 }
 
-#now-saving-text {
+#now-saving-text, #now-loading-text {
 	margin: 0;
-	background: rgba(0, 0, 0, 0.2);
-	color: white;
+	cursor: wait;
 	position: fixed;
-	text-align: center;
+	text-align: left;
 	left: 0;
-	top: 0;
-	bottom: 0;
+	bottom: 0.5ex;
 	right: 0;
-	padding-top: 64px;
-	font-size: 100pt;
-	vertical-align: middle;
-	text-shadow: 0 0 5px black;
 	z-index: 999;
-}
-
-@keyframes blinker {
-	50% { background: darkred; }
+	font-size: 70pt;
+	color: black;
+	font-weight: 900;
+	letter-spacing: -4pt;
+	-webkit-text-stroke-width: 0.5px;
+	-webkit-text-stroke-color: white;
+	word-break: break-all;
 }
 
 html {
@@ -47,7 +44,7 @@ html {
 body {
 	margin: 0;
 	padding: 0;
-	background-color: #CCC;
+	background-color: var(--main-bg-color);
 	box-sizing: border-box;
 	font-size:12px;
 }

@@ -1613,20 +1613,25 @@ save();
 		if( e != null ) untyped e.scrollIntoViewIfNeeded();
 	}
 
-	public function refresh() {
-		trace("Refresh...");
-		var content = J("#content");
-		content.empty();
+	public function refresh(text: String = "Working...") {
+		trace("Refresh");
+		var nowLoading = js.Browser.document.querySelector("#now-loading-text");
+		nowLoading.innerText = text;
+		nowLoading.className  = "";
+		js.Browser.window.setTimeout(function() {
+			var content = J("#content");
+			content.empty();
+			var t = J("<table>");
+			checkCursor = true;
+			fillTable(t, viewSheet);
+			if( cursor.s != viewSheet && checkCursor ) setCursor(viewSheet,false);
 
-		var t = J("<table>");
-		checkCursor = true;
-		fillTable(t, viewSheet);
-		if( cursor.s != viewSheet && checkCursor ) setCursor(viewSheet,false);
+			t.appendTo(content);
+			J("<div>").appendTo(content).addClass("tableBottom");
+			updateCursor();
+			nowLoading.className = "no-display";
+		});
 
-		t.appendTo(content);
-		J("<div>").appendTo(content).addClass("tableBottom");
-		updateCursor();
-		trace("Refresh finished.");
 	}
 
 	inline function makeRelativePath( path : String ) : String {
@@ -2178,8 +2183,7 @@ save();
 					if( found == null ) {
 						found = new Level(this, sheet, index);
 						levels.push(found);
-						selectLevel(found);
-						initContent(); // refresh tabs
+						selectLevel(found, true);
 					} else
 						selectLevel(found);
 				});
@@ -2251,7 +2255,6 @@ save();
 	}
 
 	function selectSheet( s : Sheet, manual = true ) {
-		trace("selectSheet " + s.name);
 		viewSheet = s;
 		pages.curPage = -1;
 		cursor = sheetCursors.get(s.name);
@@ -2269,15 +2272,25 @@ save();
 		}
 		prefs.curSheet = Lambda.indexOf(base.sheets, s);
 		J("#sheets li").removeClass("active").filter("#sheet_" + prefs.curSheet).addClass("active");
-		if( manual ) refresh();
+		if( manual ) refresh("Loading " + s.name + "...");
 	}
 
-	function selectLevel( l : Level ) {
-		if( level != null ) level.dispose();
-		pages.curPage = -1;
-		level = l;
-		level.init();
-		J("#sheets li").removeClass("active").filter("#level_" + l.sheetPath.split(".").join("_") + "_" + l.index).addClass("active");
+	function selectLevel( l : Level, initContentAfterwards : Bool = false ) {
+		var nowLoading = js.Browser.document.querySelector("#now-loading-text");
+		nowLoading.innerText = "Working...";
+		nowLoading.className  = "";
+		js.Browser.window.setTimeout(function() {
+			nowLoading.className = "no-display";
+			if( level != null ) level.dispose();
+			pages.curPage = -1;
+			level = l;
+			level.init();
+			J("#sheets li").removeClass("active").filter("#level_" + l.sheetPath.split(".").join("_") + "_" + l.index).addClass("active");
+
+			if (initContentAfterwards) {
+				initContent();
+			}
+		});
 	}
 
 

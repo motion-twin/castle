@@ -26,9 +26,8 @@ CastleDB allows efficient collaboration on data editing. It uses the JSON format
 http://castledb.org/file/castledb-1.5-win.zip
 ##### OSX x64
 http://castledb.org/file/castledb-1.5-osx.zip
-##### NWJS Package
-http://castledb.org/file/package-1.5.zip  
-> To run the package, download http://nwjs.io and put package.nw into the nwjs directory
+##### NodeJS Package
+https://nodejs.org/en/
 
 
 ### Compile from sources:
@@ -44,9 +43,9 @@ http://castledb.org/file/package-1.5.zip
 - This will create `castle.js` file in the `bin` folder
 
 #### 3. Package or Run with NWJS
-- Download and copy NWJS from http://nwjs.io into the bin/nwjs directory
-- Run cdb.cmd on windows or nwjs/nwjs from bin directory on Linux
-- On OSX, you need to copy all bin files into bin/nwjs.app/Contents/Resources/app.nw folder, then open the NWJS application
+- cd bin/
+- npm install  (at first launch)
+- npm run start (to run castledb app)
 
 ### More info
 Website / documentation: http://castledb.org

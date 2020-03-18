@@ -1536,6 +1536,8 @@ save();
 				color : "#" + StringTools.hex(val, 6),
 				showInput: true,
 				showButtons: true,
+				showInitial: true,
+				preferredFormat: "hex3",
 				change : function() spect.spectrum('hide'),
 				hide : function(vcol:Dynamic) {
 					var color = Std.parseInt("0x" + vcol.toHex());

@@ -493,14 +493,14 @@ JqPage.prototype = $extend(vdom_Server.prototype,{
 				if(saveAs) {
 					if(((data) instanceof haxe_io_Bytes)) {
 						var data1 = data;
-						var _g12 = [];
-						var _g13 = 0;
-						var _g14 = data1.length;
-						while(_g13 < _g14) {
-							var i = _g13++;
-							_g12.push(data1.b[i]);
+						var _g3 = [];
+						var _g4 = 0;
+						var _g5 = data1.length;
+						while(_g4 < _g5) {
+							var i = _g4++;
+							_g3.push(data1.b[i]);
 						}
-						var buf = new js_node_buffer_Buffer(_g12);
+						var buf = new js_node_buffer_Buffer(_g3);
 						js_node_Fs.writeFileSync(path1,buf);
 					} else {
 						js_node_Fs.writeFileSync(path1,data);
@@ -5958,7 +5958,7 @@ Main.prototype = $extend(Model.prototype,{
 			var id = Std.random(1);
 			v.html("<div class=\"modal\" onclick=\"$('#_c" + id + "').spectrum('toggle')\"></div><input type=\"text\" id=\"_c" + id + "\"/>");
 			var spect = $("#_c" + id);
-			spect.spectrum({ color : "#" + StringTools.hex(val,6), showInput : true, showButtons : true, change : function() {
+			spect.spectrum({ color : "#" + StringTools.hex(val,6), showInput : true, showButtons : true, showInitial : true, preferredFormat : "hex3", change : function() {
 				spect.spectrum("hide");
 			}, hide : function(vcol) {
 				var color = Std.parseInt("0x" + Std.string(vcol.toHex()));
@@ -6058,7 +6058,7 @@ Main.prototype = $extend(Model.prototype,{
 			text = "Working...";
 		}
 		var _gthis = this;
-		console.log("src/Main.hx:1617:","Refresh");
+		console.log("src/Main.hx:1619:","Refresh");
 		var nowLoading = window.document.querySelector("#now-loading-text");
 		nowLoading.innerText = text;
 		nowLoading.className = "";
@@ -6976,7 +6976,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2253:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2255:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -8687,7 +8687,7 @@ _$Sys_FileInput.__name__ = "_Sys.FileInput";
 _$Sys_FileInput.__super__ = haxe_io_Input;
 _$Sys_FileInput.prototype = $extend(haxe_io_Input.prototype,{
 	readByte: function() {
-		var buf = new js_node_buffer_Buffer(1);
+		var buf = js_node_buffer_Buffer.alloc(1);
 		try {
 			js_node_Fs.readSync(this.fd,buf,0,1,null);
 		} catch( e ) {
@@ -15423,6 +15423,14 @@ haxe_ds_IntMap.prototype = {
 		for( var key in this.h ) this.h.hasOwnProperty(key) ? a.push(key | 0) : null;
 		return HxOverrides.iter(a);
 	}
+	,iterator: function() {
+		return { ref : this.h, it : this.keys(), hasNext : function() {
+			return this.it.hasNext();
+		}, next : function() {
+			var i = this.it.next();
+			return this.ref[i];
+		}};
+	}
 	,__class__: haxe_ds_IntMap
 };
 var haxe_ds_List = function() {
@@ -16552,6 +16560,8 @@ var hxbit_Convert = function(classPath,ourSchema,schema) {
 		if(c1 == null) {
 			c1 = new hxbit_ConvertField(null,null,newT1);
 			c1.defaultValue = hxbit_Convert.getDefault(newT1);
+		} else {
+			c1.written = true;
 		}
 		this.write.push(c1);
 	}
@@ -17939,6 +17949,18 @@ hxbit_Serializer.prototype = {
 		var oldIn = this.input;
 		var oldPos = this.inPos;
 		this.setInput(bytes,0);
+		var obj = Reflect.field(i,"oldHxBitFields");
+		if(obj != null) {
+			var _g4 = 0;
+			var _g5 = c.read;
+			while(_g4 < _g5.length) {
+				var r1 = _g5[_g4];
+				++_g4;
+				if(!r1.written) {
+					obj[r1.path.split(".").pop()] = values[r1.index];
+				}
+			}
+		}
 		i.unserialize(this);
 		this.setInput(oldIn,oldPos);
 	}
@@ -18019,8 +18041,12 @@ hxbit_Serializer.prototype = {
 			switch(to._hx_index) {
 			case 5:
 				var to7 = to.name;
+				var cl = $hxClasses[to7];
+				if(cl == null) {
+					throw new js__$Boot_HaxeError("Missing target class " + to7);
+				}
 				var value = v;
-				var v2 = js_Boot.__downcastCheck(value,$hxClasses[to7]) ? value : null;
+				var v2 = js_Boot.__downcastCheck(value,cl) ? value : null;
 				if(v2 != null) {
 					return v2;
 				}
@@ -18034,37 +18060,87 @@ hxbit_Serializer.prototype = {
 			default:
 			}
 			break;
-		case 8:
+		case 7:
+			var _g10 = from.v;
 			var _g9 = from.k;
 			switch(to._hx_index) {
-			case 8:
-				var from1 = _g9;
+			case 7:
+				var ft = _g9;
+				var fv = _g10;
+				var tv = to.v;
+				var tt = to.k;
+				if(hxbit_Convert.sameType(ft,tt)) {
+					var path1 = path + "[]";
+					switch(ft._hx_index) {
+					case 0:
+						var v1 = v;
+						var v21 = new haxe_ds_IntMap();
+						var k = v1.iterator();
+						while(k.hasNext()) {
+							var k1 = k.next();
+							var value1 = this.convertValue(path1,v1.h[k1],fv,tv);
+							v21.h[k1] = value1;
+						}
+						return v21;
+					case 3:
+						var v3 = v;
+						var v22 = new haxe_ds_StringMap();
+						var k2 = new haxe_ds__$StringMap_StringMapIterator(v3,v3.arrayKeys());
+						while(k2.hasNext()) {
+							var k3 = k2.next();
+							var value2 = this.convertValue(path1,__map_reserved[k3] != null ? v3.getReserved(k3) : v3.h[k3],fv,tv);
+							if(__map_reserved[k3] != null) {
+								v22.setReserved(k3,value2);
+							} else {
+								v22.h[k3] = value2;
+							}
+						}
+						return v22;
+					default:
+					}
+				}
+				break;
+			case 10:
 				var to10 = to.k;
+				return this.convertValue(path,v,from,to10);
+			case 12:
+				var to11 = to.t;
+				return this.convertValue(path,v,from,to11);
+			default:
+			}
+			break;
+		case 8:
+			var _g15 = from.k;
+			switch(to._hx_index) {
+			case 8:
+				var from1 = _g15;
+				var to12 = to.k;
 				var arr = v;
+				var path2 = path + "[]";
 				var _g = [];
 				var _g1 = 0;
 				while(_g1 < arr.length) {
-					var v1 = arr[_g1];
+					var v4 = arr[_g1];
 					++_g1;
-					_g.push(this.convertValue(path + "[]",v1,from1,to10));
+					_g.push(this.convertValue(path2,v4,from1,to12));
 				}
 				return _g;
 			case 10:
-				var to11 = to.k;
-				return this.convertValue(path,v,from,to11);
+				var to13 = to.k;
+				return this.convertValue(path,v,from,to13);
 			case 12:
-				var to12 = to.t;
-				return this.convertValue(path,v,from,to12);
+				var to14 = to.t;
+				return this.convertValue(path,v,from,to14);
 			default:
 			}
 			break;
 		case 9:
-			var _g18 = from.fields;
+			var _g24 = from.fields;
 			switch(to._hx_index) {
 			case 9:
-				var obj1 = _g18;
+				var obj1 = _g24;
 				var obj2 = to.fields;
-				var v21 = { };
+				var v23 = { };
 				var _g2 = 0;
 				while(_g2 < obj2.length) {
 					var f = obj2[_g2];
@@ -18089,15 +18165,15 @@ hxbit_Serializer.prototype = {
 					} else if(field == null && f.opt) {
 						continue;
 					}
-					v21[f.name] = field;
+					v23[f.name] = field;
 				}
-				return v21;
+				return v23;
 			case 10:
-				var to13 = to.k;
-				return this.convertValue(path,v,from,to13);
+				var to15 = to.k;
+				return this.convertValue(path,v,from,to15);
 			case 12:
-				var to14 = to.t;
-				return this.convertValue(path,v,from,to14);
+				var to16 = to.t;
+				return this.convertValue(path,v,from,to16);
 			default:
 			}
 			break;
@@ -18109,8 +18185,8 @@ hxbit_Serializer.prototype = {
 				var from2 = _g4;
 				return this.convertValue(path,v,from2,to);
 			case 12:
-				var to15 = to.t;
-				return this.convertValue(path,v,from,to15);
+				var to17 = to.t;
+				return this.convertValue(path,v,from,to17);
 			default:
 				var from3 = _g4;
 				return this.convertValue(path,v,from3,to);
@@ -18122,11 +18198,11 @@ hxbit_Serializer.prototype = {
 		default:
 			switch(to._hx_index) {
 			case 10:
-				var to16 = to.k;
-				return this.convertValue(path,v,from,to16);
+				var to18 = to.k;
+				return this.convertValue(path,v,from,to18);
 			case 12:
-				var to17 = to.t;
-				return this.convertValue(path,v,from,to17);
+				var to19 = to.t;
+				return this.convertValue(path,v,from,to19);
 			default:
 			}
 		}
@@ -18734,6 +18810,120 @@ var hxbit_Schema = function() {
 $hxClasses["hxbit.Schema"] = hxbit_Schema;
 hxbit_Schema.__name__ = "hxbit.Schema";
 hxbit_Schema.__interfaces__ = [hxbit_Serializable];
+hxbit_Schema.doSerialize = function(__ctx,__this) {
+	__ctx.out.addByte(__this.isFinal ? 1 : 0);
+	var a = __this.fieldsNames;
+	if(a == null) {
+		__ctx.out.addByte(0);
+	} else {
+		var v = a.length + 1;
+		if(v >= 0 && v < 128) {
+			__ctx.out.addByte(v);
+		} else {
+			__ctx.out.addByte(128);
+			__ctx.out.addInt32(v);
+		}
+		var _g = 0;
+		while(_g < a.length) {
+			var v1 = a[_g];
+			++_g;
+			if(v1 == null) {
+				__ctx.out.addByte(0);
+			} else {
+				var b = haxe_io_Bytes.ofString(v1);
+				var v2 = b.length + 1;
+				if(v2 >= 0 && v2 < 128) {
+					__ctx.out.addByte(v2);
+				} else {
+					__ctx.out.addByte(128);
+					__ctx.out.addInt32(v2);
+				}
+				__ctx.out.add(b);
+			}
+		}
+	}
+	var a1 = __this.fieldsTypes;
+	if(a1 == null) {
+		__ctx.out.addByte(0);
+	} else {
+		var v3 = a1.length + 1;
+		if(v3 >= 0 && v3 < 128) {
+			__ctx.out.addByte(v3);
+		} else {
+			__ctx.out.addByte(128);
+			__ctx.out.addInt32(v3);
+		}
+		var _g1 = 0;
+		while(_g1 < a1.length) {
+			var v4 = a1[_g1];
+			++_g1;
+			hxbit_enumSer_Hxbit_$PropTypeDesc.doSerialize(__ctx,v4);
+		}
+	}
+};
+hxbit_Schema.doUnserialize = function(__ctx,__this) {
+	__this.isFinal = __ctx.input.b[__ctx.inPos++] != 0;
+	var e0;
+	var v = __ctx.input.b[__ctx.inPos++];
+	if(v == 128) {
+		v = __ctx.input.getInt32(__ctx.inPos);
+		__ctx.inPos += 4;
+	}
+	var len = v;
+	var tmp;
+	if(len == 0) {
+		tmp = null;
+	} else {
+		--len;
+		var a = [];
+		var _g = 0;
+		var _g1 = len;
+		while(_g < _g1) {
+			var i = _g++;
+			var v1 = __ctx.input.b[__ctx.inPos++];
+			if(v1 == 128) {
+				v1 = __ctx.input.getInt32(__ctx.inPos);
+				__ctx.inPos += 4;
+			}
+			var len1 = v1;
+			if(len1 == 0) {
+				e0 = null;
+			} else {
+				--len1;
+				var s = __ctx.input.getString(__ctx.inPos,len1);
+				__ctx.inPos += len1;
+				e0 = s;
+			}
+			a[i] = e0;
+		}
+		tmp = a;
+	}
+	__this.fieldsNames = tmp;
+	var e01;
+	var v2 = __ctx.input.b[__ctx.inPos++];
+	if(v2 == 128) {
+		v2 = __ctx.input.getInt32(__ctx.inPos);
+		__ctx.inPos += 4;
+	}
+	var len2 = v2;
+	var tmp1;
+	if(len2 == 0) {
+		tmp1 = null;
+	} else {
+		--len2;
+		var a1 = [];
+		var _g2 = 0;
+		var _g11 = len2;
+		while(_g2 < _g11) {
+			var i1 = _g2++;
+			var __e = hxbit_enumSer_Hxbit_$PropTypeDesc.doUnserialize(__ctx);
+			e01 = __e;
+			a1[i1] = e01;
+		}
+		tmp1 = a1;
+	}
+	__this.fieldsTypes = tmp1;
+};
 hxbit_Schema.prototype = {
 	get_checkSum: function() {
 		var s = new hxbit_Serializer();
@@ -18749,55 +18939,7 @@ hxbit_Schema.prototype = {
 		return hxbit_Schema.__clid;
 	}
 	,serialize: function(__ctx) {
-		__ctx.out.addByte(this.isFinal ? 1 : 0);
-		var a = this.fieldsNames;
-		if(a == null) {
-			__ctx.out.addByte(0);
-		} else {
-			var v = a.length + 1;
-			if(v >= 0 && v < 128) {
-				__ctx.out.addByte(v);
-			} else {
-				__ctx.out.addByte(128);
-				__ctx.out.addInt32(v);
-			}
-			var _g = 0;
-			while(_g < a.length) {
-				var v1 = a[_g];
-				++_g;
-				if(v1 == null) {
-					__ctx.out.addByte(0);
-				} else {
-					var b = haxe_io_Bytes.ofString(v1);
-					var v2 = b.length + 1;
-					if(v2 >= 0 && v2 < 128) {
-						__ctx.out.addByte(v2);
-					} else {
-						__ctx.out.addByte(128);
-						__ctx.out.addInt32(v2);
-					}
-					__ctx.out.add(b);
-				}
-			}
-		}
-		var a1 = this.fieldsTypes;
-		if(a1 == null) {
-			__ctx.out.addByte(0);
-		} else {
-			var v3 = a1.length + 1;
-			if(v3 >= 0 && v3 < 128) {
-				__ctx.out.addByte(v3);
-			} else {
-				__ctx.out.addByte(128);
-				__ctx.out.addInt32(v3);
-			}
-			var _g1 = 0;
-			while(_g1 < a1.length) {
-				var v4 = a1[_g1];
-				++_g1;
-				hxbit_enumSer_Hxbit_$PropTypeDesc.doSerialize(__ctx,v4);
-			}
-		}
+		hxbit_Schema.doSerialize(__ctx,this);
 	}
 	,getSerializeSchema: function() {
 		var schema = new hxbit_Schema();
@@ -18813,67 +18955,7 @@ hxbit_Schema.prototype = {
 	,unserializeInit: function() {
 	}
 	,unserialize: function(__ctx) {
-		this.isFinal = __ctx.input.b[__ctx.inPos++] != 0;
-		var e0;
-		var v = __ctx.input.b[__ctx.inPos++];
-		if(v == 128) {
-			v = __ctx.input.getInt32(__ctx.inPos);
-			__ctx.inPos += 4;
-		}
-		var len = v;
-		var tmp;
-		if(len == 0) {
-			tmp = null;
-		} else {
-			--len;
-			var a = [];
-			var _g = 0;
-			var _g1 = len;
-			while(_g < _g1) {
-				var i = _g++;
-				var v1 = __ctx.input.b[__ctx.inPos++];
-				if(v1 == 128) {
-					v1 = __ctx.input.getInt32(__ctx.inPos);
-					__ctx.inPos += 4;
-				}
-				var len1 = v1;
-				if(len1 == 0) {
-					e0 = null;
-				} else {
-					--len1;
-					var s = __ctx.input.getString(__ctx.inPos,len1);
-					__ctx.inPos += len1;
-					e0 = s;
-				}
-				a[i] = e0;
-			}
-			tmp = a;
-		}
-		this.fieldsNames = tmp;
-		var e01;
-		var v2 = __ctx.input.b[__ctx.inPos++];
-		if(v2 == 128) {
-			v2 = __ctx.input.getInt32(__ctx.inPos);
-			__ctx.inPos += 4;
-		}
-		var len2 = v2;
-		var tmp1;
-		if(len2 == 0) {
-			tmp1 = null;
-		} else {
-			--len2;
-			var a1 = [];
-			var _g2 = 0;
-			var _g11 = len2;
-			while(_g2 < _g11) {
-				var i1 = _g2++;
-				var __e = hxbit_enumSer_Hxbit_$PropTypeDesc.doUnserialize(__ctx);
-				e01 = __e;
-				a1[i1] = e01;
-			}
-			tmp1 = a1;
-		}
-		this.fieldsTypes = tmp1;
+		hxbit_Schema.doUnserialize(__ctx,this);
 	}
 	,__class__: hxbit_Schema
 };
@@ -21175,6 +21257,15 @@ js_lib__$ArrayBuffer_ArrayBufferCompat.sliceImpl = function(begin,end) {
 	return resultArray.buffer;
 };
 var js_node_Fs = require("fs");
+var js_node__$KeyValue_KeyValue_$Impl_$ = {};
+$hxClasses["js.node._KeyValue.KeyValue_Impl_"] = js_node__$KeyValue_KeyValue_$Impl_$;
+js_node__$KeyValue_KeyValue_$Impl_$.__name__ = "js.node._KeyValue.KeyValue_Impl_";
+js_node__$KeyValue_KeyValue_$Impl_$.get_key = function(this1) {
+	return this1[0];
+};
+js_node__$KeyValue_KeyValue_$Impl_$.get_value = function(this1) {
+	return this1[1];
+};
 var js_node_Net = require("net");
 var js_node_Path = require("path");
 var js_node_buffer_Buffer = require("buffer").Buffer;
@@ -21189,6 +21280,30 @@ js_node_buffer__$Buffer_Helper.bytesOfBuffer = function(b) {
 	b.hxBytes = o;
 	b.bytes = b;
 	return o;
+};
+var js_node_stream__$Writable_WritableNewOptionsAdapter_$Impl_$ = {};
+$hxClasses["js.node.stream._Writable.WritableNewOptionsAdapter_Impl_"] = js_node_stream__$Writable_WritableNewOptionsAdapter_$Impl_$;
+js_node_stream__$Writable_WritableNewOptionsAdapter_$Impl_$.__name__ = "js.node.stream._Writable.WritableNewOptionsAdapter_Impl_";
+js_node_stream__$Writable_WritableNewOptionsAdapter_$Impl_$.from = function(options) {
+	if(!Object.prototype.hasOwnProperty.call(options,"final")) {
+		Object.defineProperty(options,"final",{ get : function() {
+			return options.final_;
+		}});
+	}
+	return options;
+};
+var js_node_url__$URLSearchParams_URLSearchParamsEntry_$Impl_$ = {};
+$hxClasses["js.node.url._URLSearchParams.URLSearchParamsEntry_Impl_"] = js_node_url__$URLSearchParams_URLSearchParamsEntry_$Impl_$;
+js_node_url__$URLSearchParams_URLSearchParamsEntry_$Impl_$.__name__ = "js.node.url._URLSearchParams.URLSearchParamsEntry_Impl_";
+js_node_url__$URLSearchParams_URLSearchParamsEntry_$Impl_$._new = function(name,value) {
+	var this1 = [name,value];
+	return this1;
+};
+js_node_url__$URLSearchParams_URLSearchParamsEntry_$Impl_$.get_name = function(this1) {
+	return this1[0];
+};
+js_node_url__$URLSearchParams_URLSearchParamsEntry_$Impl_$.get_value = function(this1) {
+	return this1[1];
 };
 var js_node_webkit_App = require("nw.gui").App;
 var js_node_webkit_Clipboard = require("nw.gui").Clipboard;
@@ -24062,7 +24177,7 @@ sys_io_FileInput.__name__ = "sys.io.FileInput";
 sys_io_FileInput.__super__ = haxe_io_Input;
 sys_io_FileInput.prototype = $extend(haxe_io_Input.prototype,{
 	readByte: function() {
-		var buf = new js_node_buffer_Buffer(1);
+		var buf = js_node_buffer_Buffer.alloc(1);
 		var bytesRead;
 		try {
 			bytesRead = js_node_Fs.readSync(this.fd,buf,0,1,this.pos);
@@ -24133,7 +24248,7 @@ sys_io_FileOutput.__name__ = "sys.io.FileOutput";
 sys_io_FileOutput.__super__ = haxe_io_Output;
 sys_io_FileOutput.prototype = $extend(haxe_io_Output.prototype,{
 	writeByte: function(b) {
-		var buf = new js_node_buffer_Buffer(1);
+		var buf = js_node_buffer_Buffer.alloc(1);
 		buf[0] = b;
 		js_node_Fs.writeSync(this.fd,buf,0,1,this.pos);
 		this.pos++;

@@ -1766,18 +1766,25 @@ save();
 	}
 
 	function fillTable( content : JQuery, sheet : Sheet ) {
-		//trace("FILLTABLE " + sheet.name);
 		if( sheet.columns.length == 0 ) {
-			content.html('<a href="javascript:_.newColumn(\'${sheet.name}\')">Add a column</a>');
+			content.html('<a href="javascript:_.newColumn(\'${sheet.name}\')">Insert Column</a>');
 			return;
 		}
 
 		var todo = [];
 		var inTodo = false;
 		var cols = J("<tr>").addClass("head");
+		var colCount = sheet.columns.length;
+		var lines = [];
+
 		var types = [for( t in Type.getEnumConstructs(ColumnType) ) t.substr(1).toLowerCase()];
 
-		J("<th>").addClass("start").appendTo(cols).click(function(_) {
+		if (sheet.isLevel()) {
+			J("<th>").text("Edit").addClass("level-editor-extra-column").appendTo(cols);
+			colCount++;
+		}
+
+		J("<th>").text("#").addClass("start").appendTo(cols).click(function(_) {
 			if( sheet.props.hide )
 				content.change();
 			else
@@ -1786,35 +1793,9 @@ save();
 
 		content.addClass("sheet");
 		content.attr("sheet", sheet.getPath());
-		content.click(function(e) {
-			e.stopPropagation();
-		});
+		content.click(function(e) e.stopPropagation());
 
-		var lines = [for( i in 0...sheet.lines.length ) {
-			var l = J("<tr>");
-			l.data("index", i);
-			var head = J("<td>").addClass("start").text("" + i);
-			l.mousedown(function(e) {
-				if( e.which == 3 ) {
-					head.click();
-					haxe.Timer.delay(popupLine.bind(sheet,i),1);
-					e.preventDefault();
-					return;
-				}
-			}).click(function(e) {
-				if( e.shiftKey && cursor.s == sheet && cursor.x < 0 ) {
-					cursor.select = { x : -1, y : i };
-					updateCursor();
-				} else
-					setCursor(sheet, -1, i);
-			});
-			head.appendTo(l);
-			l;
-		}];
-
-		var colCount = sheet.columns.length;
-		if( sheet.isLevel() ) colCount++;
-
+		// Header Row
 		for( cindex in 0...sheet.columns.length ) {
 			var c = sheet.columns[cindex];
 			var col = J("<th>");
@@ -1829,17 +1810,57 @@ save();
 					return;
 				}
 			});
-			col.dblclick(function(_) {
-				newColumn(sheet.name, c);
-			});
+			col.dblclick(function(_) newColumn(sheet.name, c));
 			cols.append(col);
+		}
 
-			var ctype = "t_" + types[Type.enumIndex(c.type)];
-			for( index in 0...sheet.lines.length ) {
+		for( index in 0...sheet.lines.length ) {
+			var l = J("<tr>");
+			lines.push(l);
+			l.data("index", index);
+
+			if (sheet.isLevel()) {
+				var c = J("<a href='#'>Edit</a>");
+				J("<td>").addClass("level-editor-extra-column").append(c).appendTo(l);
+				c.click(function(_) {
+					l.click();
+					var found = null;
+					for( l in levels )
+						if( l.sheet == sheet && l.index == index )
+							found = l;
+					if( found == null ) {
+						found = new Level(this, sheet, index);
+						levels.push(found);
+						selectLevel(found, true);
+					} else
+						selectLevel(found);
+				});
+			}
+
+			var head = J("<td>").addClass("start").text("" + index);
+			l.mousedown(function(e) {
+				if( e.which == 3 ) {
+					head.click();
+					haxe.Timer.delay(popupLine.bind(sheet,index),1);
+					e.preventDefault();
+					return;
+				}
+			}).click(function(e) {
+				if( e.shiftKey && cursor.s == sheet && cursor.x < 0 ) {
+					cursor.select = { x : -1, y : index };
+					updateCursor();
+				} else
+					setCursor(sheet, -1, index);
+			});
+			head.appendTo(l);
+
+			for( cindex in 0...sheet.columns.length ) {
+				var c = sheet.columns[cindex];
+				var ctype = "t_" + types[Type.enumIndex(c.type)];
+
 				var obj = sheet.lines[index];
 				var val : Dynamic = Reflect.field(obj,c.name);
 				var v = J("<td>").addClass(ctype).addClass("c");
-				var l = lines[index];
 				v.appendTo(l);
 
 				updateClasses(v, c, val);
@@ -2169,32 +2190,10 @@ save();
 			lines.push(l);
 		}
 
-		if( sheet.isLevel() ) {
-			var col = J("<td style='width:35px'>");
-			cols.prepend(col);
-			for( index in 0...sheet.lines.length ) {
-				var l = lines[index];
-				var c = J("<a href='#'>Edit</a>");
-				J("<td>").append(c).prependTo(l);
-				c.click(function(_) {
-					l.click();
-					var found = null;
-					for( l in levels )
-						if( l.sheet == sheet && l.index == index )
-							found = l;
-					if( found == null ) {
-						found = new Level(this, sheet, index);
-						levels.push(found);
-						selectLevel(found, true);
-					} else
-						selectLevel(found);
-				});
-			}
-		}
-
 		content.empty();
 		content.append(cols);
 
+		// Separators
 		var snext = 0;
 		for( i in 0...lines.length ) {
 			while( sheet.separators[snext] == i ) {

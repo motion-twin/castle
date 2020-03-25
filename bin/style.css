@@ -322,7 +322,7 @@ div#menu ul.sheets li.active {
 .castle img.selected, .dialog-floating img.selected {
 	opacity: 0.5;
 }
-.castle th.start, .dialog-floating th.start {
+.castle th.start, .dialog-floating th.start, .castle .level-editor-extra-column {
 	width: 30px;
 }
 .castle td.start, .dialog-floating td.start {

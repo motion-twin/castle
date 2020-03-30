@@ -6260,12 +6260,14 @@ Main.prototype = $extend(Model.prototype,{
 	,fillTable: function(content,sheet) {
 		var _gthis = this;
 		if(sheet.sheet.columns.length == 0) {
-			content.html("<a href=\"javascript:_.newColumn('" + sheet.sheet.name + "')\">Add a column</a>");
+			content.html("<a href=\"javascript:_.newColumn('" + sheet.sheet.name + "')\">Insert Column</a>");
 			return;
 		}
 		var todo = [];
 		var inTodo = false;
 		var cols = $("<tr>").addClass("head");
+		var colCount = sheet.sheet.columns.length;
+		var lines = [];
 		var _g = [];
 		var _g1 = 0;
 		var _g2 = cdb_ColumnType.__constructs__.slice();
@@ -6275,7 +6277,11 @@ Main.prototype = $extend(Model.prototype,{
 			_g.push(HxOverrides.substr(t,1,null).toLowerCase());
 		}
 		var types = _g;
-		$("<th>").addClass("start").appendTo(cols).click(function(_) {
+		if(sheet.sheet.props.level != null) {
+			$("<th>").text("Edit").addClass("level-editor-extra-column").appendTo(cols);
+			colCount += 1;
+		}
+		$("<th>").text("#").addClass("start").appendTo(cols).click(function(_) {
 			if(sheet.sheet.props.hide) {
 				content.change();
 			} else {
@@ -6288,72 +6294,30 @@ Main.prototype = $extend(Model.prototype,{
 		content.click(function(e) {
 			e.stopPropagation();
 		});
-		var _g3 = [];
-		var _g4 = 0;
-		var _g5 = sheet.sheet.lines.length;
-		while(_g4 < _g5) {
-			var i = [_g4++];
-			var l = $("<tr>");
-			l.data("index",i[0]);
-			var head = [$("<td>").addClass("start").text("" + i[0])];
-			l.mousedown((function(head1,i1) {
-				return function(e1) {
-					if(e1.which == 3) {
-						head1[0].click();
-						var f = $bind(_gthis,_gthis.popupLine);
-						var sheet1 = sheet;
-						var index = i1[0];
-						haxe_Timer.delay((function() {
-							return function() {
-								f(sheet1,index);
-							};
-						})(),1);
-						e1.preventDefault();
-						return;
-					}
-				};
-			})(head,i)).click((function(i2) {
-				return function(e2) {
-					if(e2.shiftKey && _gthis.cursor.s == sheet && _gthis.cursor.x < 0) {
-						_gthis.cursor.select = { x : -1, y : i2[0]};
-						_gthis.updateCursor();
-					} else {
-						_gthis.setCursor(sheet,-1,i2[0]);
-					}
-				};
-			})(i));
-			head[0].appendTo(l);
-			_g3.push(l);
-		}
-		var lines = _g3;
-		var colCount = sheet.sheet.columns.length;
-		if(sheet.sheet.props.level != null) {
-			colCount += 1;
-		}
-		var _g6 = 0;
-		var _g7 = sheet.sheet.columns.length;
-		while(_g6 < _g7) {
-			var cindex = [_g6++];
-			var c = [sheet.sheet.columns[cindex[0]]];
+		var _g3 = 0;
+		var _g4 = sheet.sheet.columns.length;
+		while(_g3 < _g4) {
+			var cindex = _g3++;
+			var c = [sheet.sheet.columns[cindex]];
 			var col = $("<th>");
 			$("<span>").text(c[0].name).attr("title",c[0].name).appendTo(col);
-			var e3 = c[0].type;
-			col.addClass("t_" + HxOverrides.substr($hxEnums[e3.__enum__].__constructs__[e3._hx_index],1,null).toLowerCase());
+			var e1 = c[0].type;
+			col.addClass("t_" + HxOverrides.substr($hxEnums[e1.__enum__].__constructs__[e1._hx_index],1,null).toLowerCase());
 			if(sheet.sheet.props.displayColumn == c[0].name) {
 				col.addClass("display");
 			}
 			col.mousedown((function(c1) {
-				return function(e4) {
-					if(e4.which == 3) {
-						var f1 = $bind(_gthis,_gthis.popupColumn);
-						var sheet2 = sheet;
+				return function(e2) {
+					if(e2.which == 3) {
+						var f = $bind(_gthis,_gthis.popupColumn);
+						var sheet1 = sheet;
 						var c2 = c1[0];
 						haxe_Timer.delay((function() {
 							return function() {
-								f1(sheet2,c2);
+								f(sheet1,c2);
 							};
 						})(),1);
-						e4.preventDefault();
+						e2.preventDefault();
 						return;
 					}
 				};
@@ -6364,18 +6328,81 @@ Main.prototype = $extend(Model.prototype,{
 				};
 			})(c));
 			cols.append(col);
-			var ctype = "t_" + types[c[0].type._hx_index];
-			var _g61 = 0;
-			var _g71 = sheet.sheet.lines.length;
-			while(_g61 < _g71) {
-				var index1 = [_g61++];
-				var obj = [sheet.sheet.lines[index1[0]]];
-				var val = [Reflect.field(obj[0],c[0].name)];
+		}
+		var _g5 = 0;
+		var _g6 = sheet.sheet.lines.length;
+		while(_g5 < _g6) {
+			var index = [_g5++];
+			var l = [$("<tr>")];
+			lines.push(l[0]);
+			l[0].data("index",index[0]);
+			if(sheet.sheet.props.level != null) {
+				var c4 = $("<a href='#'>Edit</a>");
+				$("<td>").addClass("level-editor-extra-column").append(c4).appendTo(l[0]);
+				c4.click((function(l1,index1) {
+					return function(_2) {
+						l1[0].click();
+						var found = null;
+						var _g51 = 0;
+						var _g61 = _gthis.levels;
+						while(_g51 < _g61.length) {
+							var l2 = _g61[_g51];
+							++_g51;
+							if(l2.sheet == sheet && l2.index == index1[0]) {
+								found = l2;
+							}
+						}
+						if(found == null) {
+							found = new Level(_gthis,sheet,index1[0]);
+							_gthis.levels.push(found);
+							_gthis.selectLevel(found,true);
+						} else {
+							_gthis.selectLevel(found);
+						}
+					};
+				})(l,index));
+			}
+			var head = [$("<td>").addClass("start").text("" + index[0])];
+			var tmp1 = (function(head1,index2) {
+				return function(e3) {
+					if(e3.which == 3) {
+						head1[0].click();
+						var f1 = $bind(_gthis,_gthis.popupLine);
+						var sheet2 = sheet;
+						var index3 = index2[0];
+						haxe_Timer.delay((function() {
+							return function() {
+								f1(sheet2,index3);
+							};
+						})(),1);
+						e3.preventDefault();
+						return;
+					}
+				};
+			})(head,index);
+			l[0].mousedown(tmp1).click((function(index4) {
+				return function(e4) {
+					if(e4.shiftKey && _gthis.cursor.s == sheet && _gthis.cursor.x < 0) {
+						_gthis.cursor.select = { x : -1, y : index4[0]};
+						_gthis.updateCursor();
+					} else {
+						_gthis.setCursor(sheet,-1,index4[0]);
+					}
+				};
+			})(index));
+			head[0].appendTo(l[0]);
+			var _g52 = 0;
+			var _g62 = sheet.sheet.columns.length;
+			while(_g52 < _g62) {
+				var cindex1 = [_g52++];
+				var c5 = [sheet.sheet.columns[cindex1[0]]];
+				var ctype = "t_" + types[c5[0].type._hx_index];
+				var obj = [sheet.sheet.lines[index[0]]];
+				var val = [Reflect.field(obj[0],c5[0].name)];
 				var v = [$("<td>").addClass(ctype).addClass("c")];
-				var l1 = [lines[index1[0]]];
-				v[0].appendTo(l1[0]);
-				this.updateClasses(v[0],c[0],val[0]);
-				var html = [this.valueHtml(c[0],val[0],sheet,obj[0])];
+				v[0].appendTo(l[0]);
+				this.updateClasses(v[0],c5[0],val[0]);
+				var html = [this.valueHtml(c5[0],val[0],sheet,obj[0])];
 				if(html[0] == "&nbsp;") {
 					v[0].text(" ");
 				} else if(html[0].indexOf("<") < 0 && html[0].indexOf("&") < 0) {
@@ -6383,99 +6410,99 @@ Main.prototype = $extend(Model.prototype,{
 				} else {
 					v[0].html(html[0]);
 				}
-				v[0].data("index",cindex[0]);
-				var tmp1 = (function(index2,cindex1) {
+				v[0].data("index",cindex1[0]);
+				var tmp2 = (function(cindex2,index5) {
 					return function(e5) {
 						if(!inTodo) {
 							if(e5.shiftKey && _gthis.cursor.s == sheet) {
-								_gthis.cursor.select = { x : cindex1[0], y : index2[0]};
+								_gthis.cursor.select = { x : cindex2[0], y : index5[0]};
 								_gthis.updateCursor();
 								e5.stopImmediatePropagation();
 							} else {
-								_gthis.setCursor(sheet,cindex1[0],index2[0]);
+								_gthis.setCursor(sheet,cindex2[0],index5[0]);
 							}
 						}
 						e5.stopPropagation();
 					};
-				})(index1,cindex);
-				v[0].click(tmp1);
-				var set = [(function(html1,v1,val1,obj1,index3,c4) {
+				})(cindex1,index);
+				v[0].click(tmp2);
+				var set = [(function(html1,v1,val1,obj1,c6,index6) {
 					return function(val2) {
 						var old = val1[0];
 						val1[0] = val2;
 						if(val1[0] == null) {
-							Reflect.deleteField(obj1[0],c4[0].name);
+							Reflect.deleteField(obj1[0],c6[0].name);
 						} else {
-							obj1[0][c4[0].name] = val1[0];
+							obj1[0][c6[0].name] = val1[0];
 						}
-						var set1 = _gthis.valueHtml(c4[0],val1[0],sheet,obj1[0]);
+						var set1 = _gthis.valueHtml(c6[0],val1[0],sheet,obj1[0]);
 						html1[0] = set1;
 						v1[0].html(html1[0]);
-						_gthis.changed(sheet,c4[0],index3[0],old);
+						_gthis.changed(sheet,c6[0],index6[0],old);
 					};
-				})(html,v,val,obj,index1,c)];
-				var _g62 = c[0].type;
-				switch(_g62._hx_index) {
+				})(html,v,val,obj,c5,index)];
+				var _g53 = c5[0].type;
+				switch(_g53._hx_index) {
 				case 7:
-					v[0].find("img").addClass("deletable").change((function(obj2,c5) {
+					v[0].find("img").addClass("deletable").change((function(obj2,c7) {
 						return function(e6) {
-							if(Reflect.field(obj2[0],c5[0].name) != null) {
+							if(Reflect.field(obj2[0],c7[0].name) != null) {
 								var op = _gthis.prepSnapshot();
-								Reflect.deleteField(obj2[0],c5[0].name);
+								Reflect.deleteField(obj2[0],c7[0].name);
 								_gthis.commitSnapshot(op);
 							}
 						};
-					})(obj,c)).click((function() {
+					})(obj,c5)).click((function() {
 						return function(e7) {
 							$(this).addClass("selected");
 							e7.stopPropagation();
 						};
 					})());
-					var tmp2 = (function(v2,index4,c6) {
-						return function(_2) {
-							_gthis.editCell(c6[0],v2[0],sheet,index4[0]);
+					var tmp3 = (function(v2,c8,index7) {
+						return function(_3) {
+							_gthis.editCell(c8[0],v2[0],sheet,index7[0]);
 						};
-					})(v,index1,c);
-					v[0].dblclick(tmp2);
+					})(v,c5,index);
+					v[0].dblclick(tmp3);
 					var v3 = v[0];
-					var tmp3 = (function(v4,index5,c7) {
+					var tmp4 = (function(v4,c9,index8) {
 						return function(e8) {
 							e8.preventDefault();
 							e8.stopPropagation();
 							if(e8.dataTransfer.files.length > 0) {
 								v4[0].dropFile = e8.dataTransfer.files[0].path;
-								_gthis.editCell(c7[0],v4[0],sheet,index5[0]);
+								_gthis.editCell(c9[0],v4[0],sheet,index8[0]);
 								v4[0].dropFile = null;
 							}
 						};
-					})(v,index1,c);
-					v3[0].addEventListener("drop",tmp3);
+					})(v,c5,index);
+					v3[0].addEventListener("drop",tmp4);
 					break;
 				case 8:
-					var key = [sheet.getPath() + "@" + c[0].name + ":" + index1[0]];
-					var tmp4 = (function(key1,html2,l2,v5,val3,obj3,index6,c8,cindex2) {
+					var key = [sheet.getPath() + "@" + c5[0].name + ":" + index[0]];
+					var tmp5 = (function(key1,html2,v5,val3,obj3,c10,cindex3,l3,index9) {
 						return function(e9) {
-							var next = l2[0].next("tr.list");
+							var next = l3[0].next("tr.list");
 							if(next.length > 0) {
-								if(next.data("name") == c8[0].name) {
+								if(next.data("name") == c10[0].name) {
 									next.change();
 									return;
 								}
 								next.change();
 							}
-							next = $("<tr>").addClass("list").data("name",c8[0].name);
+							next = $("<tr>").addClass("list").data("name",c10[0].name);
 							$("<td>").appendTo(next);
 							var cell = $("<td>").attr("colspan","" + colCount).appendTo(next);
 							var div = $("<div>").appendTo(cell);
 							var content1 = $("<table>").appendTo(div);
-							var psheet = sheet.base.getSheet(sheet.sheet.name + "@" + c8[0].name);
+							var psheet = sheet.base.getSheet(sheet.sheet.name + "@" + c10[0].name);
 							if(val3[0] == null) {
 								val3[0] = [];
-								obj3[0][c8[0].name] = val3[0];
+								obj3[0][c10[0].name] = val3[0];
 							}
-							psheet = new cdb_Sheet(_gthis.base,{ columns : psheet.sheet.columns, props : psheet.sheet.props, name : psheet.sheet.name, lines : val3[0], separators : []},key1[0],{ sheet : sheet, column : cindex2[0], line : index6[0]});
+							psheet = new cdb_Sheet(_gthis.base,{ columns : psheet.sheet.columns, props : psheet.sheet.props, name : psheet.sheet.name, lines : val3[0], separators : []},key1[0],{ sheet : sheet, column : cindex3[0], line : index9[0]});
 							_gthis.fillTable(content1,psheet);
-							next.insertAfter(l2[0]);
+							next.insertAfter(l3[0]);
 							v5[0].text("...");
 							v5[0].addClass("opened");
 							var _this = _gthis.openedList;
@@ -6484,24 +6511,24 @@ Main.prototype = $extend(Model.prototype,{
 							} else {
 								_this.h[key1[0]] = true;
 							}
-							var tmp5 = (function(key2,html3,v6,val4,obj4,c9) {
+							var tmp6 = (function(key2,html3,v6,val4,obj4,c11) {
 								return function(e10) {
-									if(c9[0].opt && val4[0].length == 0) {
+									if(c11[0].opt && val4[0].length == 0) {
 										var op1 = _gthis.prepSnapshot();
 										val4[0] = null;
-										Reflect.deleteField(obj4[0],c9[0].name);
+										Reflect.deleteField(obj4[0],c11[0].name);
 										_gthis.commitSnapshot(op1);
 									}
-									var tmp6 = _gthis.valueHtml(c9[0],val4[0],sheet,obj4[0]);
-									html3[0] = tmp6;
+									var tmp7 = _gthis.valueHtml(c11[0],val4[0],sheet,obj4[0]);
+									html3[0] = tmp7;
 									v6[0].html(html3[0]);
 									v6[0].removeClass("opened");
 									next.remove();
 									_gthis.openedList.remove(key2[0]);
 									e10.stopPropagation();
 								};
-							})(key1,html2,v5,val3,obj3,c8);
-							next.change(tmp5);
+							})(key1,html2,v5,val3,obj3,c10);
+							next.change(tmp6);
 							if(inTodo) {
 								if(_gthis.cursor.s != null && _gthis.cursor.s.getPath() == psheet.getPath()) {
 									_gthis.cursor.s = psheet;
@@ -6512,8 +6539,8 @@ Main.prototype = $extend(Model.prototype,{
 							}
 							e9.stopPropagation();
 						};
-					})(key,html,l1,v,val,obj,index1,c,cindex);
-					v[0].click(tmp4);
+					})(key,html,v,val,obj,c5,cindex1,l,index);
+					v[0].click(tmp5);
 					var _this1 = this.openedList;
 					if(__map_reserved[key[0]] != null ? _this1.getReserved(key[0]) : _this1.h[key[0]]) {
 						todo.push((function(v7) {
@@ -6524,33 +6551,33 @@ Main.prototype = $extend(Model.prototype,{
 					}
 					break;
 				case 12:
-					var _g72 = _g62.type;
+					var _g63 = _g53.type;
 					break;
 				case 13:
-					v[0].find("input").addClass("deletable").change((function(obj5,c10) {
+					v[0].find("input").addClass("deletable").change((function(obj5,c12) {
 						return function(e11) {
-							if(Reflect.field(obj5[0],c10[0].name) != null) {
+							if(Reflect.field(obj5[0],c12[0].name) != null) {
 								var op2 = _gthis.prepSnapshot("remove file");
-								Reflect.deleteField(obj5[0],c10[0].name);
+								Reflect.deleteField(obj5[0],c12[0].name);
 								_gthis.commitSnapshot(op2);
 							}
 						};
-					})(obj,c));
-					var tmp7 = (function(set2) {
-						return function(_3) {
-							var tmp8 = (function(set3) {
+					})(obj,c5));
+					var tmp8 = (function(set2) {
+						return function(_4) {
+							var tmp9 = (function(set3) {
 								return function(path) {
 									var op3 = _gthis.prepSnapshot("set file");
 									set3[0](path);
 									_gthis.commitSnapshot(op3);
 								};
 							})(set2);
-							_gthis.chooseFile(tmp8);
+							_gthis.chooseFile(tmp9);
 						};
 					})(set);
-					v[0].dblclick(tmp7);
+					v[0].dblclick(tmp8);
 					var v8 = v[0];
-					var tmp9 = (function(set4) {
+					var tmp10 = (function(set4) {
 						return function(e12) {
 							if(e12.dataTransfer.files.length > 0) {
 								e12.preventDefault();
@@ -6581,20 +6608,20 @@ Main.prototype = $extend(Model.prototype,{
 							}
 						};
 					})(set);
-					v8[0].addEventListener("drop",tmp9);
+					v8[0].addEventListener("drop",tmp10);
 					break;
 				case 14:
-					v[0].find("div").addClass("deletable").change((function(obj6,c11) {
+					v[0].find("div").addClass("deletable").change((function(obj6,c13) {
 						return function(e13) {
-							if(Reflect.field(obj6[0],c11[0].name) != null) {
+							if(Reflect.field(obj6[0],c13[0].name) != null) {
 								var op5 = _gthis.prepSnapshot("remove tile");
-								Reflect.deleteField(obj6[0],c11[0].name);
+								Reflect.deleteField(obj6[0],c13[0].name);
 								_gthis.commitSnapshot(op5);
 							}
 						};
-					})(obj,c));
-					var tmp10 = (function(set5,v9,val5,index7,c12) {
-						return function(_4) {
+					})(obj,c5));
+					var tmp11 = (function(set5,v9,val5,c14,index10) {
+						return function(_5) {
 							var rv = val5[0];
 							var file = rv == null ? null : rv.file;
 							var size = rv == null ? 16 : rv.size;
@@ -6609,10 +6636,10 @@ Main.prototype = $extend(Model.prototype,{
 								height = 1;
 							}
 							if(file == null) {
-								var i3 = index7[0] - 1;
-								while(i3 >= 0) {
-									var o = sheet.sheet.lines[i3--];
-									var v21 = Reflect.field(o,c12[0].name);
+								var i = index10[0] - 1;
+								while(i >= 0) {
+									var o = sheet.sheet.lines[i--];
+									var v21 = Reflect.field(o,c14[0].name);
 									if(v21 != null) {
 										file = v21.file;
 										size = v21.size;
@@ -6633,14 +6660,14 @@ Main.prototype = $extend(Model.prototype,{
 								};
 							})(set5);
 							if(file == null) {
-								var tmp11 = (function(v11) {
+								var tmp12 = (function(v11) {
 									return function(path2) {
 										file = path2;
 										setVal();
 										v11[0].dblclick();
 									};
 								})(v9);
-								_gthis.chooseFile(tmp11);
+								_gthis.chooseFile(tmp12);
 								return;
 							}
 							var dialog = $($(".tileSelect").parent().html()).prependTo($("body"));
@@ -6663,12 +6690,12 @@ Main.prototype = $extend(Model.prototype,{
 									if(posY < 0) {
 										posY = 0;
 									}
-									var tmp12 = size * posX - 1 + "px";
-									var tmp13 = size * posY - 1 + "px";
-									$(".tileCursor").not(".current").css({ marginLeft : tmp12, marginTop : tmp13});
+									var tmp13 = size * posX - 1 + "px";
+									var tmp14 = size * posY - 1 + "px";
+									$(".tileCursor").not(".current").css({ marginLeft : tmp13, marginTop : tmp14});
 								};
 							})()).click((function() {
-								return function(_5) {
+								return function(_6) {
 									var op6 = _gthis.prepSnapshot();
 									setVal();
 									dialog.remove();
@@ -6676,40 +6703,40 @@ Main.prototype = $extend(Model.prototype,{
 								};
 							})());
 							dialog.find("[name=size]").val("" + size).change((function() {
-								return function(_6) {
+								return function(_7) {
 									size = Std.parseInt($(this).val());
-									var tmp14 = size * width + "px";
-									var tmp15 = size * height + "px";
-									$(".tileCursor").css({ width : tmp14, height : tmp15});
-									var tmp16 = size * posX - 2 + "px";
-									var tmp17 = size * posY - 2 + "px";
-									$(".tileCursor.current").css({ marginLeft : tmp16, marginTop : tmp17});
+									var tmp15 = size * width + "px";
+									var tmp16 = size * height + "px";
+									$(".tileCursor").css({ width : tmp15, height : tmp16});
+									var tmp17 = size * posX - 2 + "px";
+									var tmp18 = size * posY - 2 + "px";
+									$(".tileCursor.current").css({ marginLeft : tmp17, marginTop : tmp18});
 								};
 							})()).change();
 							dialog.find("[name=width]").val("" + width).change((function() {
-								return function(_7) {
+								return function(_8) {
 									width = Std.parseInt($(this).val());
-									var tmp18 = size * width + "px";
-									var tmp19 = size * height + "px";
-									$(".tileCursor").css({ width : tmp18, height : tmp19});
+									var tmp19 = size * width + "px";
+									var tmp20 = size * height + "px";
+									$(".tileCursor").css({ width : tmp19, height : tmp20});
 								};
 							})()).change();
 							dialog.find("[name=height]").val("" + height).change((function() {
-								return function(_8) {
+								return function(_9) {
 									height = Std.parseInt($(this).val());
-									var tmp20 = size * width + "px";
-									var tmp21 = size * height + "px";
-									$(".tileCursor").css({ width : tmp20, height : tmp21});
+									var tmp21 = size * width + "px";
+									var tmp22 = size * height + "px";
+									$(".tileCursor").css({ width : tmp21, height : tmp22});
 								};
 							})()).change();
 							dialog.find("[name=cancel]").click((function() {
-								return function(_9) {
+								return function(_10) {
 									dialog.remove();
 								};
 							})());
 							dialog.find("[name=file]").click((function(v12) {
-								return function(_10) {
-									var tmp22 = (function(v13) {
+								return function(_11) {
+									var tmp23 = (function(v13) {
 										return function(f2) {
 											var op7 = _gthis.prepSnapshot();
 											file = f2;
@@ -6719,73 +6746,73 @@ Main.prototype = $extend(Model.prototype,{
 											v13[0].dblclick();
 										};
 									})(v12);
-									_gthis.chooseFile(tmp22);
+									_gthis.chooseFile(tmp23);
 								};
 							})(v9));
-							var tmp23 = (function() {
+							var tmp24 = (function() {
 								return function(e15) {
 									e15.stopPropagation();
 								};
 							})();
-							dialog.keydown(tmp23).keypress((function() {
+							dialog.keydown(tmp24).keypress((function() {
 								return function(e16) {
 									e16.stopPropagation();
 								};
 							})());
 							dialog.show();
-							var i4 = window.document.createElement("img");
-							i4.onload = (function() {
-								return function(_11) {
-									maxWidth = i4.width;
-									maxHeight = i4.height;
-									dialog.find(".tileView").height(i4.height).width(i4.width);
-									dialog.find(".tilePath").text(file + " (" + i4.width + "x" + i4.height + ")");
+							var i1 = window.document.createElement("img");
+							i1.onload = (function() {
+								return function(_12) {
+									maxWidth = i1.width;
+									maxHeight = i1.height;
+									dialog.find(".tileView").height(i1.height).width(i1.width);
+									dialog.find(".tilePath").text(file + " (" + i1.width + "x" + i1.height + ")");
 								};
 							})();
-							var tmp24 = _gthis.getAbsPath(file);
-							i4.src = "file://" + tmp24;
+							var tmp25 = _gthis.getAbsPath(file);
+							i1.src = "file://" + tmp25;
 						};
-					})(set,v,val,index1,c);
-					v[0].dblclick(tmp10);
+					})(set,v,val,c5,index);
+					v[0].dblclick(tmp11);
 					break;
 				case 17:
-					var key3 = [sheet.getPath() + "@" + c[0].name + ":" + index1[0]];
-					var tmp25 = (function(key4,html4,l3,v14,val6,obj7,index8,c13,cindex3) {
+					var key3 = [sheet.getPath() + "@" + c5[0].name + ":" + index[0]];
+					var tmp26 = (function(key4,html4,v14,val6,obj7,c15,cindex4,l4,index11) {
 						return function(e17) {
-							var next1 = l3[0].next("tr.list");
+							var next1 = l4[0].next("tr.list");
 							if(next1.length > 0) {
-								if(next1.data("name") == c13[0].name) {
+								if(next1.data("name") == c15[0].name) {
 									next1.change();
 									return;
 								}
 								next1.change();
 							}
-							next1 = $("<tr>").addClass("list").data("name",c13[0].name);
+							next1 = $("<tr>").addClass("list").data("name",c15[0].name);
 							$("<td>").appendTo(next1);
 							var cell1 = $("<td>").attr("colspan","" + colCount).appendTo(next1);
 							var div1 = $("<div>").appendTo(cell1);
 							var content2 = $("<table>").addClass("props").appendTo(div1);
-							var psheet1 = sheet.base.getSheet(sheet.sheet.name + "@" + c13[0].name);
+							var psheet1 = sheet.base.getSheet(sheet.sheet.name + "@" + c15[0].name);
 							if(val6[0] == null) {
 								val6[0] = { };
-								obj7[0][c13[0].name] = val6[0];
+								obj7[0][c15[0].name] = val6[0];
 							}
 							var _gthis1 = _gthis.base;
 							var psheet2 = psheet1.sheet.columns;
 							var psheet3 = psheet1.sheet.props;
 							var psheet4 = psheet1.sheet.name;
-							var _g63 = [];
-							var _g73 = 0;
-							var _g8 = Reflect.fields(val6[0]);
-							while(_g73 < _g8.length) {
-								var f3 = _g8[_g73];
-								++_g73;
-								_g63.push(null);
+							var _g54 = [];
+							var _g64 = 0;
+							var _g7 = Reflect.fields(val6[0]);
+							while(_g64 < _g7.length) {
+								var f3 = _g7[_g64];
+								++_g64;
+								_g54.push(null);
 							}
-							psheet1 = new cdb_Sheet(_gthis1,{ columns : psheet2, props : psheet3, name : psheet4, lines : _g63, separators : []},key4[0],{ sheet : sheet, column : cindex3[0], line : index8[0]});
+							psheet1 = new cdb_Sheet(_gthis1,{ columns : psheet2, props : psheet3, name : psheet4, lines : _g54, separators : []},key4[0],{ sheet : sheet, column : cindex4[0], line : index11[0]});
 							psheet1.sheet.lines[0] = val6[0];
 							_gthis.fillProps(content2,psheet1,val6[0]);
-							next1.insertAfter(l3[0]);
+							next1.insertAfter(l4[0]);
 							v14[0].text("...");
 							v14[0].addClass("opened");
 							var _this2 = _gthis.openedList;
@@ -6794,24 +6821,24 @@ Main.prototype = $extend(Model.prototype,{
 							} else {
 								_this2.h[key4[0]] = true;
 							}
-							var tmp26 = (function(key5,html5,v15,val7,obj8,c14) {
+							var tmp27 = (function(key5,html5,v15,val7,obj8,c16) {
 								return function(e18) {
-									if(c14[0].opt && Reflect.fields(val7[0]).length == 0) {
+									if(c16[0].opt && Reflect.fields(val7[0]).length == 0) {
 										var op8 = _gthis.prepSnapshot();
 										val7[0] = null;
-										Reflect.deleteField(obj8[0],c14[0].name);
+										Reflect.deleteField(obj8[0],c16[0].name);
 										_gthis.commitSnapshot(op8);
 									}
-									var tmp27 = _gthis.valueHtml(c14[0],val7[0],sheet,obj8[0]);
-									html5[0] = tmp27;
+									var tmp28 = _gthis.valueHtml(c16[0],val7[0],sheet,obj8[0]);
+									html5[0] = tmp28;
 									v15[0].html(html5[0]);
 									v15[0].removeClass("opened");
 									next1.remove();
 									_gthis.openedList.remove(key5[0]);
 									e18.stopPropagation();
 								};
-							})(key4,html4,v14,val6,obj7,c13);
-							next1.change(tmp26);
+							})(key4,html4,v14,val6,obj7,c15);
+							next1.change(tmp27);
 							if(inTodo) {
 								if(_gthis.cursor.s != null && _gthis.cursor.s.getPath() == psheet1.getPath()) {
 									_gthis.cursor.s = psheet1;
@@ -6822,8 +6849,8 @@ Main.prototype = $extend(Model.prototype,{
 							}
 							e17.stopPropagation();
 						};
-					})(key3,html,l1,v,val,obj,index1,c,cindex);
-					v[0].click(tmp25);
+					})(key3,html,v,val,obj,c5,cindex1,l,index);
+					v[0].click(tmp26);
 					var _this3 = this.openedList;
 					if(__map_reserved[key3[0]] != null ? _this3.getReserved(key3[0]) : _this3.h[key3[0]]) {
 						todo.push((function(v16) {
@@ -6834,64 +6861,30 @@ Main.prototype = $extend(Model.prototype,{
 					}
 					break;
 				default:
-					var tmp28 = (function(v17,index9,c15) {
+					var tmp29 = (function(v17,c17,index12) {
 						return function(e19) {
-							_gthis.editCell(c15[0],v17[0],sheet,index9[0]);
+							_gthis.editCell(c17[0],v17[0],sheet,index12[0]);
 						};
-					})(v,index1,c);
-					v[0].dblclick(tmp28);
+					})(v,c5,index);
+					v[0].dblclick(tmp29);
 				}
 			}
 		}
 		if(sheet.sheet.lines.length == 0) {
-			var l4 = $("<tr><td colspan=\"" + (sheet.sheet.columns.length + 1) + "\"><a href=\"javascript:_.insertLine()\">Insert Row</a></td></tr>");
-			l4.find("a").click(function(_12) {
+			var l5 = $("<tr><td colspan=\"" + (sheet.sheet.columns.length + 1) + "\"><a href=\"javascript:_.insertLine()\">Insert Row</a></td></tr>");
+			l5.find("a").click(function(_13) {
 				_gthis.setCursor(sheet);
 			});
-			lines.push(l4);
-		}
-		if(sheet.sheet.props.level != null) {
-			var col1 = $("<td style='width:35px'>");
-			cols.prepend(col1);
-			var _g81 = 0;
-			var _g9 = sheet.sheet.lines.length;
-			while(_g81 < _g9) {
-				var index10 = [_g81++];
-				var l5 = [lines[index10[0]]];
-				var c16 = $("<a href='#'>Edit</a>");
-				$("<td>").append(c16).prependTo(l5[0]);
-				c16.click((function(l6,index11) {
-					return function(_13) {
-						l6[0].click();
-						var found = null;
-						var _g82 = 0;
-						var _g91 = _gthis.levels;
-						while(_g82 < _g91.length) {
-							var l7 = _g91[_g82];
-							++_g82;
-							if(l7.sheet == sheet && l7.index == index11[0]) {
-								found = l7;
-							}
-						}
-						if(found == null) {
-							found = new Level(_gthis,sheet,index11[0]);
-							_gthis.levels.push(found);
-							_gthis.selectLevel(found,true);
-						} else {
-							_gthis.selectLevel(found);
-						}
-					};
-				})(l5,index10));
-			}
+			lines.push(l5);
 		}
 		content.empty();
 		content.append(cols);
 		var snext = 0;
-		var _g83 = 0;
-		var _g92 = lines.length;
-		while(_g83 < _g92) {
-			var i5 = _g83++;
-			while(sheet.sheet.separators[snext] == i5) {
+		var _g71 = 0;
+		var _g8 = lines.length;
+		while(_g71 < _g8) {
+			var i2 = _g71++;
+			while(sheet.sheet.separators[snext] == i2) {
 				var sep = $("<tr>").addClass("separator").append("<td colspan=\"" + (colCount + 1) + "\">").appendTo(content);
 				var content3 = [sep.find("td")];
 				var title = [sheet.sheet.props.separatorTitles != null ? sheet.sheet.props.separatorTitles[snext] : null];
@@ -6902,13 +6895,13 @@ Main.prototype = $extend(Model.prototype,{
 				sep.dblclick((function(pos1,title1,content4) {
 					return function(e20) {
 						content4[0].empty();
-						var tmp29 = $("<input>");
-						var tmp30 = title1[0] == null ? "" : title1[0];
-						tmp29.appendTo(content4[0]).focus().val(tmp30).blur((function(pos2,title2,content5) {
+						var tmp30 = $("<input>");
+						var tmp31 = title1[0] == null ? "" : title1[0];
+						tmp30.appendTo(content4[0]).focus().val(tmp31).blur((function(pos2,title2,content5) {
 							return function(_14) {
 								var op9 = _gthis.prepSnapshot();
-								var tmp31 = $(this).val();
-								title2[0] = tmp31;
+								var tmp32 = $(this).val();
+								title2[0] = tmp32;
 								$(this).remove();
 								content5[0].text(title2[0]);
 								var titles = sheet.sheet.props.separatorTitles;
@@ -6943,13 +6936,13 @@ Main.prototype = $extend(Model.prototype,{
 				})(pos,title,content3));
 				++snext;
 			}
-			content.append(lines[i5]);
+			content.append(lines[i2]);
 		}
 		inTodo = true;
-		var _g10 = 0;
-		while(_g10 < todo.length) {
-			var t1 = todo[_g10];
-			++_g10;
+		var _g9 = 0;
+		while(_g9 < todo.length) {
+			var t1 = todo[_g9];
+			++_g9;
 			t1();
 		}
 		inTodo = false;
@@ -6976,7 +6969,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2255:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2254:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -9229,12 +9222,36 @@ cdb_Database.prototype = {
 		}
 		return sobj;
 	}
-	,createSubSheet: function(s,c) {
-		var s1 = { name : s.sheet.name + "@" + c.name, props : { hide : true}, separators : [], lines : [], columns : []};
+	,createSubSheet: function(parent,c) {
+		var s = { name : parent.sheet.name + "@" + c.name, props : { hide : true}, separators : [], lines : [], columns : []};
 		if(c.type == cdb_ColumnType.TProperties) {
-			s1.props.isProps = true;
+			s.props.isProps = true;
 		}
-		return this.addSheet(s1);
+		var index = this.data.sheets.indexOf(Lambda.find(this.data.sheets,function(s1) {
+			return s1.name == parent.sheet.name;
+		}));
+		var _g = 0;
+		var _g1 = parent.sheet.columns;
+		while(_g < _g1.length) {
+			var c2 = _g1[_g];
+			++_g;
+			if(c == c2) {
+				break;
+			}
+			var tmp;
+			switch(c2.type._hx_index) {
+			case 8:case 17:
+				tmp = true;
+				break;
+			default:
+				tmp = false;
+			}
+			if(tmp) {
+				var sub = parent.base.getSheet(parent.sheet.name + "@" + c2.name);
+				index = this.data.sheets.indexOf(sub.sheet);
+			}
+		}
+		return this.addSheet(s,index < 0 ? null : index + 1);
 	}
 	,sync: function() {
 		this.smap = new haxe_ds_StringMap();
@@ -9264,14 +9281,15 @@ cdb_Database.prototype = {
 		return this.data.customTypes;
 	}
 	,loadFrom: function(rootCDBPath) {
-		this.data = cdb_Parser.parseFrom(rootCDBPath,true);
-		this.postLoad();
+		var data = cdb_Parser.parseFrom(rootCDBPath,true);
+		this.loadData(data);
 	}
-	,loadJson: function(json) {
-		this.data = cdb_Parser.parseJson(json,true);
-		this.postLoad();
+	,loadJson: function(content) {
+		var data = cdb_Parser.parseJson(content,true);
+		this.loadData(data);
 	}
-	,postLoad: function() {
+	,loadData: function(data) {
+		this.data = data;
 		if(this.sheets != null) {
 			var _g = 0;
 			var _g1 = this.sheets;
@@ -9285,7 +9303,7 @@ cdb_Database.prototype = {
 		}
 		var _g2 = [];
 		var _g11 = 0;
-		var _g21 = this.data.sheets;
+		var _g21 = data.sheets;
 		while(_g11 < _g21.length) {
 			var s1 = _g21[_g11];
 			++_g11;
@@ -9412,7 +9430,7 @@ cdb_Database.prototype = {
 		this.prepForSaving();
 		cdb_Parser.saveMultifile(this.data,outPath);
 	}
-	,getDefault: function(c,ignoreOpt) {
+	,getDefault: function(c,ignoreOpt,sheet) {
 		if(ignoreOpt == null) {
 			ignoreOpt = false;
 		}
@@ -9467,7 +9485,23 @@ cdb_Database.prototype = {
 		case 14:case 15:case 16:
 			return null;
 		case 17:
-			return { };
+			var obj = { };
+			if(sheet != null) {
+				var s2 = sheet.base.getSheet(sheet.sheet.name + "@" + c.name);
+				var _g6 = 0;
+				var _g12 = s2.sheet.columns;
+				while(_g6 < _g12.length) {
+					var c2 = _g12[_g6];
+					++_g6;
+					if(!c2.opt) {
+						var def = this.getDefault(c2,null,s2);
+						if(def != null) {
+							obj[c2.name] = def;
+						}
+					}
+				}
+			}
+			return obj;
 		}
 	}
 	,typeStr: function(t) {
@@ -9565,7 +9599,7 @@ cdb_Database.prototype = {
 					++_g7;
 					var v2 = Reflect.field(o2,c.name);
 					if(v2 == null) {
-						v2 = this.getDefault(c);
+						v2 = this.getDefault(c,null,sheet);
 						if(v2 != null) {
 							o2[c.name] = v2;
 						}
@@ -9576,7 +9610,7 @@ cdb_Database.prototype = {
 				if(_g8._hx_index == 5) {
 					var _g13 = _g8.values;
 				} else {
-					var def = this.getDefault(old);
+					var def = this.getDefault(old,null,sheet);
 					var _g9 = 0;
 					var _g14 = sheet.getLines();
 					while(_g9 < _g14.length) {
@@ -9591,7 +9625,7 @@ cdb_Database.prototype = {
 							}
 							break;
 						case 17:
-							if(Reflect.fields(v3).length == 0) {
+							if(Reflect.fields(v3).length == 0 || JSON.stringify(v3) == JSON.stringify(def)) {
 								Reflect.deleteField(o3,c.name);
 							}
 							break;
@@ -9666,12 +9700,9 @@ cdb_Database.prototype = {
 		}
 		return pairs;
 	}
-	,getConvFunction: function(old,t,custom) {
+	,getConvFunction: function(old,t) {
 		var conv = null;
 		if(Type.enumEq(old,t)) {
-			if(custom != null && Type.enumEq(old,custom.t)) {
-				return { f : custom.f};
-			}
 			return { f : null};
 		}
 		switch(old._hx_index) {
@@ -9976,8 +10007,23 @@ cdb_Database.prototype = {
 		var convMap = [];
 		var convertTypeRec = null;
 		convertTypeRec = function(t1,v) {
-			if(t1 == null) {
+			if(t1 == null || v == null) {
 				return null;
+			}
+			var c = t1.cases[v[0]];
+			var _g = 0;
+			var _g1 = c.args.length;
+			while(_g < _g1) {
+				var i = _g++;
+				var _g2 = c.args[i].type;
+				if(_g2._hx_index == 9) {
+					var tname = _g2.name;
+					var av = v[i + 1];
+					if(av != null) {
+						var convertTypeRec1 = _gthis.getCustomType(tname);
+						v[i + 1] = convertTypeRec(convertTypeRec1,av);
+					}
+				}
 			}
 			if(t1 == old) {
 				var conv = convMap[v[0]];
@@ -9985,32 +10031,17 @@ cdb_Database.prototype = {
 					return null;
 				}
 				var out = conv.def.slice();
-				var _g = 0;
-				var _g1 = conv.args.length;
-				while(_g < _g1) {
-					var i = _g++;
-					var v1 = conv.args[i](v[i + 1]);
+				var _g21 = 0;
+				var _g3 = conv.args.length;
+				while(_g21 < _g3) {
+					var i1 = _g21++;
+					var v1 = conv.args[i1](v[i1 + 1]);
 					if(v1 == null) {
 						continue;
 					}
 					out[v1.index + 1] = v1.v;
 				}
 				return out;
-			}
-			var c = t1.cases[v[0]];
-			var _g2 = 0;
-			var _g11 = c.args.length;
-			while(_g2 < _g11) {
-				var i1 = _g2++;
-				var _g3 = c.args[i1].type;
-				if(_g3._hx_index == 9) {
-					var tname = _g3.name;
-					var av = v[i1 + 1];
-					if(av != null) {
-						var convertTypeRec1 = _gthis.getCustomType(tname);
-						v[i1 + 1] = convertTypeRec(convertTypeRec1,av);
-					}
-				}
 			}
 			return v;
 		};
@@ -10038,100 +10069,96 @@ cdb_Database.prototype = {
 				}
 				var b = [a.b];
 				var a1 = a.a;
-				var c1 = this.getConvFunction(a1.type,b[0].type,{ t : cdb_ColumnType.TCustom(old.name), f : (function(t2,f) {
-					return function(v2) {
-						return f[0](t2[0],v2);
-					};
-				})([old],[convertTypeRec])});
+				var c1 = this.getConvFunction(a1.type,b[0].type);
 				if(c1 == null) {
 					throw new js__$Boot_HaxeError("Cannot convert " + p.a.name + "." + a1.name + ":" + this.typeStr(a1.type) + " to " + p.b.name + "." + b[0].name + ":" + this.typeStr(b[0].type));
 				}
-				var f1 = [c1.f];
-				if(f1[0] == null) {
+				var f = [c1.f];
+				if(f[0] == null) {
 					var tmp = (function() {
 						return function(x) {
 							return x;
 						};
 					})();
-					f1[0] = tmp;
+					f[0] = tmp;
 				}
 				if(a1.opt != b[0].opt) {
-					var oldf = [f1[0]];
+					var oldf = [f[0]];
 					if(a1.opt) {
 						var tmp1 = (function(oldf1,b1) {
-							return function(v3) {
-								v3 = oldf1[0](v3);
-								if(v3 == null) {
+							return function(v2) {
+								v2 = oldf1[0](v2);
+								if(v2 == null) {
 									return _gthis.getDefault(b1[0]);
 								} else {
-									return v3;
+									return v2;
 								}
 							};
 						})(oldf,b);
-						f1[0] = tmp1;
+						f[0] = tmp1;
 					} else {
 						var def = [this.getDefault(a1)];
 						var tmp2 = (function(def1,oldf2) {
-							return function(v4) {
-								if(v4 == def1[0]) {
+							return function(v3) {
+								if(v3 == def1[0]) {
 									return null;
 								} else {
-									return oldf2[0](v4);
+									return oldf2[0](v3);
 								}
 							};
 						})(def,oldf);
-						f1[0] = tmp2;
+						f[0] = tmp2;
 					}
 				}
 				var index = [Lambda.indexOf(p.b.args,b[0])];
-				conv1.args[Lambda.indexOf(p.a.args,a1)] = (function(index1,f2,b2) {
-					return function(v5) {
-						v5 = f2[0](v5);
-						if(v5 == null && b2[0].opt) {
+				conv1.args[Lambda.indexOf(p.a.args,a1)] = (function(index1,f1,b2) {
+					return function(v4) {
+						v4 = f1[0](v4);
+						if(v4 == null && b2[0].opt) {
 							return null;
 						} else {
-							return { index : index1[0], v : v5};
+							return { index : index1[0], v : v4};
 						}
 					};
-				})(index,f1,b);
+				})(index,f,b);
 			}
-			var _g12 = 0;
-			var _g21 = p.b.args;
-			while(_g12 < _g21.length) {
-				var b3 = _g21[_g12];
-				++_g12;
+			var _g11 = 0;
+			var _g22 = p.b.args;
+			while(_g11 < _g22.length) {
+				var b3 = _g22[_g11];
+				++_g11;
 				conv1.def.push(this.getDefault(b3));
 			}
 			while(conv1.def[conv1.def.length - 1] == null) conv1.def.pop();
 			var tmp3 = Lambda.indexOf(old.cases,p.a);
 			convMap[tmp3] = conv1;
 		}
-		var _g13 = 0;
-		var _g22 = this.sheets;
-		while(_g13 < _g22.length) {
-			var s = _g22[_g13];
-			++_g13;
-			var _g14 = 0;
-			var _g23 = s.sheet.columns;
-			while(_g14 < _g23.length) {
-				var c2 = _g23[_g14];
-				++_g14;
-				var _g15 = c2.type;
-				if(_g15._hx_index == 9) {
-					var tname1 = _g15.name;
-					var t21 = this.getCustomType(tname1);
-					var _g16 = 0;
-					var _g24 = s.getLines();
-					while(_g16 < _g24.length) {
-						var obj = _g24[_g16];
-						++_g16;
-						var v6 = Reflect.field(obj,c2.name);
-						if(v6 != null) {
-							v6 = convertTypeRec(t21,v6);
-							if(v6 == null) {
+		var _g12 = 0;
+		var _g23 = this.sheets;
+		while(_g12 < _g23.length) {
+			var s = _g23[_g12];
+			++_g12;
+			var _g13 = 0;
+			var _g24 = s.sheet.columns;
+			while(_g13 < _g24.length) {
+				var c2 = _g24[_g13];
+				++_g13;
+				var _g14 = c2.type;
+				if(_g14._hx_index == 9) {
+					var tname1 = _g14.name;
+					var t2 = this.getCustomType(tname1);
+					var _g15 = 0;
+					var _g25 = s.getLines();
+					while(_g15 < _g25.length) {
+						var obj = _g25[_g15];
+						++_g15;
+						var v5 = Reflect.field(obj,c2.name);
+						if(v5 != null) {
+							v5 = convertTypeRec(t2,v5);
+							if(v5 == null) {
 								Reflect.deleteField(obj,c2.name);
 							} else {
-								obj[c2.name] = v6;
+								obj[c2.name] = v5;
 							}
 						}
 					}
@@ -10146,10 +10173,10 @@ cdb_Database.prototype = {
 			var _g31 = 0;
 			var _g41 = this.getCustomTypes();
 			while(_g31 < _g41.length) {
-				var t22 = _g41[_g31];
+				var t21 = _g41[_g31];
 				++_g31;
 				var _g32 = 0;
-				var _g42 = t22.cases;
+				var _g42 = t21.cases;
 				while(_g32 < _g42.length) {
 					var c3 = _g42[_g32];
 					++_g32;
@@ -12615,7 +12642,7 @@ cdb_Sheet.prototype = {
 		while(_g < _g1.length) {
 			var c = _g1[_g];
 			++_g;
-			var d = this.base.getDefault(c);
+			var d = this.base.getDefault(c,null,this);
 			if(d != null) {
 				o[c.name] = d;
 			}
@@ -12802,18 +12829,18 @@ cdb_Sheet.prototype = {
 		} else {
 			this.sheet.columns.splice(index,0,c);
 		}
+		if(c.type == cdb_ColumnType.TList || c.type == cdb_ColumnType.TProperties) {
+			this.base.createSubSheet(this,c);
+		}
 		var _g2 = 0;
 		var _g3 = this.getLines();
 		while(_g2 < _g3.length) {
 			var i = _g3[_g2];
 			++_g2;
-			var def = this.base.getDefault(c);
+			var def = this.base.getDefault(c,null,this);
 			if(def != null) {
 				i[c.name] = def;
 			}
-		}
-		if(c.type == cdb_ColumnType.TList || c.type == cdb_ColumnType.TProperties) {
-			this.base.createSubSheet(this,c);
 		}
 		return null;
 	}
@@ -12824,7 +12851,7 @@ cdb_Sheet.prototype = {
 		while(_g < _g1.length) {
 			var c = _g1[_g];
 			++_g;
-			var d = this.base.getDefault(c);
+			var d = this.base.getDefault(c,null,this);
 			if(d != null) {
 				props[c.name] = d;
 			}

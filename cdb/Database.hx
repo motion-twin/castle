@@ -176,16 +176,25 @@ class Database {
 		return sobj;
 	}
 
-	public function createSubSheet( s : Sheet, c : Column ) {
+	public function createSubSheet( parent : Sheet, c : Column ) {
 		var s : cdb.Data.SheetData = {
-			name : s.name + "@" + c.name,
+			name : parent.name + "@" + c.name,
 			props : { hide : true },
 			separators : [],
 			lines : [],
 			columns : [],
 		};
 		if( c.type == TProperties ) s.props.isProps = true;
-		return addSheet(s);
+		// our parent might be a virtual sheet
+		var index = data.sheets.indexOf(Lambda.find(data.sheets, function(s) return s.name == parent.name));
+		for( c2 in parent.columns ) {
+			if( c == c2 ) break;
+			if( c2.type.match(TProperties|TList) ) {
+				var sub = parent.getSub(c2);
+				index = data.sheets.indexOf(@:privateAccess sub.sheet);
+			}
+		}
+		return addSheet(s, index < 0 ? null : index + 1);
 	}
 
 	public function sync() {
@@ -202,16 +211,17 @@ class Database {
 	}
 
 	public function loadFrom( rootCDBPath : String ) {
-		data = cdb.Parser.parseFrom(rootCDBPath, true);
-		postLoad();
+		var data = cdb.Parser.parseFrom(rootCDBPath, true);
+		loadData(data);
 	}
 
-	public function loadJson(json: String) {
-		data = cdb.Parser.parseJson(json, true);
-		postLoad();
+	public function loadJson( content : String ) {
+		var data = cdb.Parser.parseJson(content, true);
+		loadData(data);
 	}
 
-	private function postLoad() {
+	public function loadData( data : cdb.Data ) {
+		this.data = data;
 		if( sheets != null ) {
 			// reset old sheets (should not be used)
 			for( s in sheets ) @:privateAccess {
@@ -301,7 +311,7 @@ class Database {
 		cdb.Parser.saveMultifile(data, outPath);
 	}
 
-	public function getDefault( c : Column, ignoreOpt = false ) : Dynamic {
+	public function getDefault( c : Column, ?ignoreOpt = false, ?sheet : Sheet ) : Dynamic {
 		if( c.opt && !ignoreOpt )
 			return null;
 		return switch( c.type ) {
@@ -320,7 +330,17 @@ class Database {
 			id;
 		case TBool: c.opt ? true : false;
 		case TList: [];
-		case TProperties : {};
+		case TProperties:
+			var obj = {};
+			if( sheet != null ) {
+				var s = sheet.getSub(c);
+				for( c in s.columns )
+					if( !c.opt ) {
+						var def = getDefault(c, s);
+						if( def != null ) Reflect.setField(obj, c.name, def);
+					}
+			}
+			obj;
 		case TCustom(_), TTilePos, TTileLayer, TDynamic: null;
 		}
 	}
@@ -384,7 +404,7 @@ class Database {
 				for( o in sheet.getLines() ) {
 					var v = Reflect.field(o, c.name);
 					if( v == null ) {
-						v = getDefault(c);
+						v = getDefault(c, sheet);
 						if( v != null ) Reflect.setField(o, c.name, v);
 					}
 				}
@@ -393,7 +413,7 @@ class Database {
 				case TEnum(_):
 					// first choice should not be removed
 				default:
-					var def = getDefault(old);
+					var def = getDefault(old, sheet);
 					for( o in sheet.getLines() ) {
 						var v = Reflect.field(o, c.name);
 						switch( c.type ) {
@@ -402,7 +422,7 @@ class Database {
 							if( v.length == 0 )
 								Reflect.deleteField(o, c.name);
 						case TProperties:
-							if( Reflect.fields(v).length == 0 )
+							if( Reflect.fields(v).length == 0 || haxe.Json.stringify(v) == haxe.Json.stringify(def) )
 								Reflect.deleteField(o, c.name);
 						default:
 							if( v == def )
@@ -457,13 +477,10 @@ class Database {
 		return pairs;
 	}
 
-	public function getConvFunction( old : ColumnType, t : ColumnType, ?custom : { t : ColumnType, f : Dynamic -> Dynamic } ) {
+	public function getConvFunction( old : ColumnType, t : ColumnType ) {
 		var conv : Dynamic -> Dynamic = null;
-		if( Type.enumEq(old, t) ) {
-			if( custom != null && Type.enumEq(old,custom.t) )
-				return { f : custom.f };
+		if( Type.enumEq(old, t) )
 			return { f : null };
-		}
 		switch( [old, t] ) {
 		case [TInt, TFloat]:
 			// nothing
@@ -543,8 +560,18 @@ class Database {
 		var convMap : Array<{ def : Array<Dynamic>, args : Array<Dynamic -> Dynamic> }> = [];
 
 		function convertTypeRec( t : CustomType, v : Array<Dynamic> ) : Array<Dynamic> {
-			if( t == null )
+			if( t == null || v == null )
 				return null;
+			var c = t.cases[v[0]];
+			for( i in 0...c.args.length ) {
+				switch( c.args[i].type ) {
+				case TCustom(tname):
+					var av = v[i + 1];
+					if( av != null )
+						v[i+1] = convertTypeRec(getCustomType(tname), av);
+				default:
+				}
+			}
 			if( t == old ) {
 				var conv = convMap[v[0]];
 				if( conv == null )
@@ -557,19 +584,8 @@ class Database {
 				}
 				return out;
 			}
-			var c = t.cases[v[0]];
-			for( i in 0...c.args.length ) {
-				switch( c.args[i].type ) {
-				case TCustom(tname):
-					var av = v[i + 1];
-					if( av != null )
-						v[i+1] = convertTypeRec(getCustomType(tname), av);
-				default:
-				}
-			}
 			return v;
 		}
-
 
 		for( p in casesPairs ) {
 
@@ -587,7 +603,7 @@ class Database {
 					continue;
 				}
 				var b = a.b, a = a.a;
-				var c = getConvFunction(a.type, b.type, { t : TCustom(old.name), f : convertTypeRec.bind(old) });
+				var c = getConvFunction(a.type, b.type);
 				if( c == null )
 					throw "Cannot convert " + p.a.name + "." + a.name + ":" + typeStr(a.type) + " to " + p.b.name + "." + b.name + ":" + typeStr(b.type);
 				var f : Dynamic -> Dynamic = c.f;

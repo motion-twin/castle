@@ -145,7 +145,7 @@ class Sheet {
 		var o = {
 		};
 		for( c in sheet.columns ) {
-			var d = base.getDefault(c);
+			var d = base.getDefault(c, this);
 			if( d != null )
 				Reflect.setField(o, c.name, d);
 		}
@@ -286,13 +286,13 @@ class Sheet {
 			sheet.columns.push(c);
 		else
 			sheet.columns.insert(index, c);
-		for( i in getLines() ) {
-			var def = base.getDefault(c);
-			if( def != null ) Reflect.setField(i, c.name, def);
-		}
 		if( c.type == TList || c.type == TProperties ) {
 			// create an hidden sheet for the model
 			base.createSubSheet(this, c);
+		}
+		for( i in getLines() ) {
+			var def = base.getDefault(c, this);
+			if( def != null ) Reflect.setField(i, c.name, def);
 		}
 		return null;
 	}
@@ -301,7 +301,7 @@ class Sheet {
 	public function getDefaults() {
 		var props = {};
 		for( c in columns ) {
-			var d = base.getDefault(c);
+			var d = base.getDefault(c, this);
 			if( d != null )
 				Reflect.setField(props, c.name, d);
 		}

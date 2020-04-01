@@ -109,7 +109,7 @@ class Parser {
 	}
 
 	public static function parseFrom(schemaPath : String, editMode : Bool) : Data {
-		Sys.println("parseFrom: " + schemaPath); // printCallstack
+//		Sys.println("parseFrom: " + schemaPath); // printCallstack
 		var content = MultifileLoadSave.readFile(schemaPath);
 		if( content == null ) throw "CDB content is null";
 		var data : Data = haxe.Json.parse(content);

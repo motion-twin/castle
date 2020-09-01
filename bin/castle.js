@@ -7919,6 +7919,7 @@ Main.prototype = $extend(Model.prototype,{
 		nowLoading.className = "";
 		nowLoading.innerText = "Need resync: " + path;
 		this.currentSyncCallback = window.setTimeout(function() {
+			nowLoading.className = "no-display";
 			var doReload = true;
 			if(_gthis.opStack.hasUnsavedChanges()) {
 				doReload = _gthis.window.window.confirm("The DB was modified by an external program, but you had unsaved changes.\nReload anyway?");

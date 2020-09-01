@@ -3130,6 +3130,7 @@ save();
 		nowLoading.innerText = "Need resync: " + path;
 
 		currentSyncCallback = js.Browser.window.setTimeout(function() {
+			nowLoading.className = "no-display";
 			var doReload = true;
 			if (opStack.hasUnsavedChanges()) {
 				doReload = window.window.confirm("The DB was modified by an external program, but you had unsaved changes.\nReload anyway?");

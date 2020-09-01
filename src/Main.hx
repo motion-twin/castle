@@ -75,6 +75,11 @@ class Main extends Model {
 	var macEditMenu : MenuItem;
 	var editMenu : Menu;
 
+	var currentRefreshCallback : Null<Int>;
+
+	var fileWatchers : Array<js.node.fs.FSWatcher> = [];
+	var currentSyncCallback : Null<Int>;
+
 	public static function getCallstackString(skip:Int = 1) {
 		var cs = haxe.CallStack.callStack();
 		var str = "===CALLSTACK===";
@@ -1620,7 +1625,10 @@ save();
 		var nowLoading = js.Browser.document.querySelector("#now-loading-text");
 		nowLoading.innerText = text;
 		nowLoading.className  = "";
-		js.Browser.window.setTimeout(function() {
+		if (currentRefreshCallback != null)
+			return;
+		currentRefreshCallback = js.Browser.window.setTimeout(function() {
+			currentRefreshCallback = null;
 			var content = J("#content");
 			content.empty();
 			var t = J("<table>");
@@ -1633,7 +1641,6 @@ save();
 			updateCursor();
 			nowLoading.className = "no-display";
 		});
-
 	}
 
 	inline function makeRelativePath( path : String ) : String {
@@ -3078,6 +3085,63 @@ save();
 			prefs.recent.unshift(prefs.curFile);
 		if( prefs.recent.length > 8 ) prefs.recent.pop();
 		mcompress.checked = base.compress;
+	}
+
+	public override function removeFileWatcher() {
+		for (watcher in fileWatchers) {
+			watcher.close();
+		}
+		fileWatchers = [];
+		if (currentSyncCallback != null) {
+			js.Browser.window.clearTimeout(currentSyncCallback);
+			currentSyncCallback = null;
+		}
+	}
+
+	public override function installFileWatcher() {
+		removeFileWatcher();
+
+		if (base.isMultifile) {
+			fileWatchers.push(js.node.Fs.watch(
+				cdb.MultifileLoadSave.getBaseDir(prefs.curFile),
+				{persistent: true, recursive: true},
+				(change, path) -> onFileWatcherChange(change, path)));
+		}
+
+		fileWatchers.push(js.node.Fs.watch(
+			prefs.curFile,
+			{persistent: true, recursive: false},
+			(change, path) -> onFileWatcherChange(change, path)));
+	}
+
+	private function onFileWatcherChange(change, path) {
+		if (change == null || change == "")
+			return;
+			
+		// If there's already a callback, restart the timer.
+		// Restarting the timer gives some more time for an external program to finish
+		// modifying a large amount of files before the Castle GUI goes ahead with the refresh.
+		// (Especially useful when switching git branches)
+		if (currentSyncCallback != null)
+			js.Browser.window.clearTimeout(currentSyncCallback);
+
+		var nowLoading = js.Browser.document.querySelector("#now-loading-text");
+		nowLoading.className = "";
+		nowLoading.innerText = "Need resync: " + path;
+
+		currentSyncCallback = js.Browser.window.setTimeout(function() {
+			var doReload = true;
+			if (opStack.hasUnsavedChanges()) {
+				doReload = window.window.confirm("The DB was modified by an external program, but you had unsaved changes.\nReload anyway?");
+			} /* else {
+				doReload = window.window.confirm("The DB was modified by an external program.\nReload?");
+			} */
+			if (doReload) {
+				load();
+				refresh("Synchronizing...");
+			}
+			js.Browser.window.setTimeout(() -> this.currentSyncCallback = null);
+		}, 2500); // long timeout to allow e.g. switching git branches to finish modifying all relevant files
 	}
 
 	public static var inst : Main;

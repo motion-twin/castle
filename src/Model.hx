@@ -56,6 +56,10 @@ class Model {
 		loadPrefs();
 	}
 
+	public function installFileWatcher() {}
+
+	public function removeFileWatcher() {}
+
 	function quickExists(path) {
 		var c = existsCache.get(path);
 		if( c == null ) {
@@ -86,6 +90,8 @@ class Model {
 		if( prefs.curFile == null )
 			return;
 
+		removeFileWatcher();
+
 		js.Browser.document.querySelector("#now-saving-text").className  = "";
 		js.Browser.window.setTimeout(function() {
 			var success = false;
@@ -108,6 +114,7 @@ class Model {
 					opStack.setSavePointHere();
 				}
 				js.Browser.document.querySelector("#now-saving-text").className = "no-display";
+				installFileWatcher();
 			});
 		});
 	}
@@ -133,6 +140,8 @@ class Model {
 	}
 
 	function load(noError = false) {
+		removeFileWatcher();
+
 		opStack = new OperationStack(cast(this, Main));
 		base = new cdb.Database();
 		try {
@@ -155,6 +164,8 @@ class Model {
 			imageBank = null;
 		}
 		opStack.setSavePointHere();
+
+		js.Browser.window.setTimeout(() -> installFileWatcher());
 	}
 
 	function cleanImages() {

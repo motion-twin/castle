@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+import js.Browser;
 import ops.FullSnapshot;
 import cdb.Data;
 import cdb.Sheet;
@@ -1821,10 +1822,22 @@ save();
 			cols.append(col);
 		}
 
+		var snext = 0;
 		for( index in 0...sheet.lines.length ) {
 			var l = J("<tr>");
 			lines.push(l);
 			l.data("index", index);
+			
+			//add separatorID to the line
+			while( sheet.separators[snext] == index ) {
+				snext++;
+			}
+			l.attr("separatorID", snext-1);
+			
+			var hiddenValue = js.Browser.getLocalStorage().getItem(sheet.getPath()+"#"+index+":hidden");
+			if (hiddenValue == "true") {
+				l.hide();
+			}
 
 			if (sheet.isLevel()) {
 				var c = J("<a href='#'>Edit</a>");
@@ -1942,13 +1955,21 @@ save();
 							val = [];
 							Reflect.setField(obj, c.name, val);
 						}
-						psheet = new cdb.Sheet(base,{
-							columns : psheet.columns, // SHARE
-							props : psheet.props, // SHARE
-							name : psheet.name, // same
-							lines : val, // ref
-							separators : [], // none
-						},key, { sheet : sheet, column : cindex, line : index });
+						psheet = new cdb.Sheet(
+							base,
+							{ 	columns : psheet.columns, // SHARE
+								props : psheet.props, // SHARE
+								name : psheet.name, // same
+								lines : val, // ref
+								separators : [], // none
+							},
+							key, 
+							{ 
+								sheet : sheet, 
+								column : cindex, 
+								line : index 
+							}
+						);
 						fillTable(content, psheet);
 						next.insertAfter(l);
 						v.text("...");
@@ -2201,10 +2222,11 @@ save();
 		content.append(cols);
 
 		// Separators
-		var snext = 0;
+		snext = 0;
 		for( i in 0...lines.length ) {
 			while( sheet.separators[snext] == i ) {
-				var sep = J("<tr>").addClass("separator").append('<td colspan="${colCount+1}">').appendTo(content);
+				var sep = J("<tr>").addClass("separator").attr("separatorID", snext);
+				sep.append('<td colspan="${colCount+1}">').appendTo(content);
 				var content = sep.find("td");
 				var title = if( sheet.props.separatorTitles != null ) sheet.props.separatorTitles[snext] else null;
 				if( title != null ) content.text(title);
@@ -2231,6 +2253,20 @@ save();
 					}).keydown(function(e) {
 						if( e.keyCode == 13 ) { JTHIS.blur(); e.preventDefault(); } else if( e.keyCode == 27 ) content.text(title);
 						e.stopPropagation();
+					});
+				});
+				sep.click(function(e) {
+					// find the line with the same separatorID and hide or show it
+					var j = JTHIS;
+					var elements = j.parent().find("tr[class!='separator'][separatorID='" + j.attr("separatorID") + "']");
+					elements.each( function (i,e) {						
+						if (J(e).css("display") == "none") {
+							J(e).show();
+							js.Browser.getLocalStorage().setItem(sheet.getPath()+"#"+J(e).data("index")+":hidden", "false");
+						} else {
+							J(e).hide();
+							js.Browser.getLocalStorage().setItem(sheet.getPath()+"#"+J(e).data("index")+":hidden", "true");
+						}
 					});
 				});
 				snext++;

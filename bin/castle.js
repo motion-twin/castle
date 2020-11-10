@@ -848,104 +848,6 @@ Lambda.concat = function(a,b) {
 	}
 	return l;
 };
-var haxe_IMap = function() { };
-$hxClasses["haxe.IMap"] = haxe_IMap;
-haxe_IMap.__name__ = "haxe.IMap";
-haxe_IMap.__isInterface__ = true;
-haxe_IMap.prototype = {
-	__class__: haxe_IMap
-};
-var haxe_ds_StringMap = function() {
-	this.h = { };
-};
-$hxClasses["haxe.ds.StringMap"] = haxe_ds_StringMap;
-haxe_ds_StringMap.__name__ = "haxe.ds.StringMap";
-haxe_ds_StringMap.__interfaces__ = [haxe_IMap];
-haxe_ds_StringMap.prototype = {
-	get: function(key) {
-		if(__map_reserved[key] != null) {
-			return this.getReserved(key);
-		}
-		return this.h[key];
-	}
-	,setReserved: function(key,value) {
-		if(this.rh == null) {
-			this.rh = { };
-		}
-		this.rh["$" + key] = value;
-	}
-	,getReserved: function(key) {
-		if(this.rh == null) {
-			return null;
-		} else {
-			return this.rh["$" + key];
-		}
-	}
-	,existsReserved: function(key) {
-		if(this.rh == null) {
-			return false;
-		}
-		return this.rh.hasOwnProperty("$" + key);
-	}
-	,remove: function(key) {
-		if(__map_reserved[key] != null) {
-			key = "$" + key;
-			if(this.rh == null || !this.rh.hasOwnProperty(key)) {
-				return false;
-			}
-			delete(this.rh[key]);
-			return true;
-		} else {
-			if(!this.h.hasOwnProperty(key)) {
-				return false;
-			}
-			delete(this.h[key]);
-			return true;
-		}
-	}
-	,keys: function() {
-		return HxOverrides.iter(this.arrayKeys());
-	}
-	,arrayKeys: function() {
-		var out = [];
-		for( var key in this.h ) {
-		if(this.h.hasOwnProperty(key)) {
-			out.push(key);
-		}
-		}
-		if(this.rh != null) {
-			for( var key in this.rh ) {
-			if(key.charCodeAt(0) == 36) {
-				out.push(key.substr(1));
-			}
-			}
-		}
-		return out;
-	}
-	,iterator: function() {
-		return new haxe_ds__$StringMap_StringMapIterator(this,this.arrayKeys());
-	}
-	,toString: function() {
-		var s_b = "";
-		s_b += "{";
-		var keys = this.arrayKeys();
-		var _g = 0;
-		var _g1 = keys.length;
-		while(_g < _g1) {
-			var i = _g++;
-			var k = keys[i];
-			s_b += k == null ? "null" : "" + k;
-			s_b += " => ";
-			s_b += Std.string(Std.string(__map_reserved[k] != null ? this.getReserved(k) : this.h[k]));
-			if(i < keys.length - 1) {
-				s_b += ", ";
-			}
-		}
-		s_b += "}";
-		return s_b;
-	}
-	,__class__: haxe_ds_StringMap
-};
 var Level = function(model,sheet,index) {
 	this.reloading = false;
 	this.rotation = 0;
@@ -7065,7 +6967,7 @@ Main.prototype = $extend(Model.prototype,{
 							return function(i3,e24) {
 								if($(e24).css("display") == "none") {
 									$(e24).show();
-									js_Browser.getLocalStorage().setItem(sheet.getPath() + "#" + Std.string($(e24).data("index")) + ":hidden","false");
+									js_Browser.getLocalStorage().removeItem(sheet.getPath() + "#" + Std.string($(e24).data("index")) + ":hidden");
 								} else {
 									$(e24).hide();
 									js_Browser.getLocalStorage().setItem(sheet.getPath() + "#" + Std.string($(e24).data("index")) + ":hidden","true");
@@ -8108,6 +8010,31 @@ Main.prototype = $extend(Model.prototype,{
 		var mi_view = new js_node_webkit_MenuItem({ label : "View"});
 		var m_view = new js_node_webkit_Menu();
 		mi_view.submenu = m_view;
+		var mi_collapseAllSeparator = new js_node_webkit_MenuItem({ label : "Collapse All Categories"});
+		mi_collapseAllSeparator.click = function() {
+			var j4 = $("#content").find("tr[class!='separator'][class!='head']");
+			var sheetPath = $("#content").find("table").attr("sheet");
+			console.log("src/Main.hx:3032:",j4);
+			j4.each(function(i4,e4) {
+				if($(e4).css("display") != "none") {
+					$(e4).hide();
+					js_Browser.getLocalStorage().setItem(sheetPath + "#" + Std.string($(e4).data("index")) + ":hidden","true");
+				}
+			});
+		};
+		m_view.append(mi_collapseAllSeparator);
+		var mi_uncollapseAllSeparator = new js_node_webkit_MenuItem({ label : "Uncollapse All Categories"});
+		mi_uncollapseAllSeparator.click = function() {
+			var j5 = $("#content").find("tr[class!='separator'][class!='head']");
+			var sheetPath1 = $("#content").find("table").attr("sheet");
+			j5.each(function(i5,e5) {
+				if($(e5).css("display") == "none") {
+					$(e5).show();
+					js_Browser.getLocalStorage().removeItem(sheetPath1 + "#" + Std.string($(e5).data("index")) + ":hidden");
+				}
+			});
+		};
+		m_view.append(mi_uncollapseAllSeparator);
 		var mi_hideListPreviews = new js_node_webkit_MenuItem({ label : "Hide List Previews", type : "checkbox"});
 		mi_hideListPreviews.checked = this.prefs.hideListPreviews;
 		mi_hideListPreviews.click = function() {
@@ -8128,21 +8055,21 @@ Main.prototype = $extend(Model.prototype,{
 		var mi_zoomLevels_h = { };
 		var _g22 = -4;
 		while(_g22 < 7) {
-			var i4 = [_g22++];
-			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "Zoom " + Math.round(Math.pow(1.2,i4[0]) * 100) + "%", type : "checkbox"})];
-			mi_zoom_n[0].click = (function(mi_zoom_n1,i5) {
+			var i6 = [_g22++];
+			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "Zoom " + Math.round(Math.pow(1.2,i6[0]) * 100) + "%", type : "checkbox"})];
+			mi_zoom_n[0].click = (function(mi_zoom_n1,i7) {
 				return function() {
 					if(mi_zoomLevels_h.hasOwnProperty(_gthis.window.zoomLevel)) {
 						mi_zoomLevels_h[_gthis.window.zoomLevel].checked = false;
 					}
-					_gthis.window.zoomLevel = i5[0];
+					_gthis.window.zoomLevel = i7[0];
 					mi_zoom_n1[0].checked = true;
 					_gthis.prefs.zoomLevel = _gthis.window.zoomLevel;
 					_gthis.savePrefs();
 				};
-			})(mi_zoom_n,i4);
+			})(mi_zoom_n,i6);
 			m_view.append(mi_zoom_n[0]);
-			mi_zoomLevels_h[i4[0]] = mi_zoom_n[0];
+			mi_zoomLevels_h[i6[0]] = mi_zoom_n[0];
 		}
 		if(mi_zoomLevels_h.hasOwnProperty(this.window.zoomLevel)) {
 			mi_zoomLevels_h[this.window.zoomLevel].checked = true;
@@ -12001,6 +11928,104 @@ cdb_Lz4Reader.prototype = {
 		return out.sub(0,outPos);
 	}
 	,__class__: cdb_Lz4Reader
+};
+var haxe_IMap = function() { };
+$hxClasses["haxe.IMap"] = haxe_IMap;
+haxe_IMap.__name__ = "haxe.IMap";
+haxe_IMap.__isInterface__ = true;
+haxe_IMap.prototype = {
+	__class__: haxe_IMap
+};
+var haxe_ds_StringMap = function() {
+	this.h = { };
+};
+$hxClasses["haxe.ds.StringMap"] = haxe_ds_StringMap;
+haxe_ds_StringMap.__name__ = "haxe.ds.StringMap";
+haxe_ds_StringMap.__interfaces__ = [haxe_IMap];
+haxe_ds_StringMap.prototype = {
+	get: function(key) {
+		if(__map_reserved[key] != null) {
+			return this.getReserved(key);
+		}
+		return this.h[key];
+	}
+	,setReserved: function(key,value) {
+		if(this.rh == null) {
+			this.rh = { };
+		}
+		this.rh["$" + key] = value;
+	}
+	,getReserved: function(key) {
+		if(this.rh == null) {
+			return null;
+		} else {
+			return this.rh["$" + key];
+		}
+	}
+	,existsReserved: function(key) {
+		if(this.rh == null) {
+			return false;
+		}
+		return this.rh.hasOwnProperty("$" + key);
+	}
+	,remove: function(key) {
+		if(__map_reserved[key] != null) {
+			key = "$" + key;
+			if(this.rh == null || !this.rh.hasOwnProperty(key)) {
+				return false;
+			}
+			delete(this.rh[key]);
+			return true;
+		} else {
+			if(!this.h.hasOwnProperty(key)) {
+				return false;
+			}
+			delete(this.h[key]);
+			return true;
+		}
+	}
+	,keys: function() {
+		return HxOverrides.iter(this.arrayKeys());
+	}
+	,arrayKeys: function() {
+		var out = [];
+		for( var key in this.h ) {
+		if(this.h.hasOwnProperty(key)) {
+			out.push(key);
+		}
+		}
+		if(this.rh != null) {
+			for( var key in this.rh ) {
+			if(key.charCodeAt(0) == 36) {
+				out.push(key.substr(1));
+			}
+			}
+		}
+		return out;
+	}
+	,iterator: function() {
+		return new haxe_ds__$StringMap_StringMapIterator(this,this.arrayKeys());
+	}
+	,toString: function() {
+		var s_b = "";
+		s_b += "{";
+		var keys = this.arrayKeys();
+		var _g = 0;
+		var _g1 = keys.length;
+		while(_g < _g1) {
+			var i = _g++;
+			var k = keys[i];
+			s_b += k == null ? "null" : "" + k;
+			s_b += " => ";
+			s_b += Std.string(Std.string(__map_reserved[k] != null ? this.getReserved(k) : this.h[k]));
+			if(i < keys.length - 1) {
+				s_b += ", ";
+			}
+		}
+		s_b += "}";
+		return s_b;
+	}
+	,__class__: haxe_ds_StringMap
 };
 var cdb_MultifileLoadSave = function() { };
 $hxClasses["cdb.MultifileLoadSave"] = cdb_MultifileLoadSave;
@@ -24321,7 +24346,6 @@ function $iterator(o) { if( o instanceof Array ) return function() { return HxOv
 function $getIterator(o) { if( o instanceof Array ) return HxOverrides.iter(o); else return o.iterator(); }
 function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id__ = $global.$haxeUID++; var f; if( o.hx__closures__ == null ) o.hx__closures__ = {}; else f = o.hx__closures__[m.__id__]; if( f == null ) { f = m.bind(o); o.hx__closures__[m.__id__] = f; } return f; }
 $global.$haxeUID |= 0;
-var __map_reserved = {};
 $hxClasses["Math"] = Math;
 if( String.fromCodePoint == null ) String.fromCodePoint = function(c) { return c < 0x10000 ? String.fromCharCode(c) : String.fromCharCode((c>>10)+0xD7C0)+String.fromCharCode((c&0x3FF)+0xDC00); }
 String.prototype.__class__ = $hxClasses["String"] = String;
@@ -24336,6 +24360,7 @@ var Float = Number;
 var Bool = Boolean;
 var Class = { };
 var Enum = { };
+var __map_reserved = {};
 haxe_ds_ObjectMap.count = 0;
 Object.defineProperty(js__$Boot_HaxeError.prototype,"message",{ get : function() {
 	return String(this.val);

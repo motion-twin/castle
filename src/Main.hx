@@ -2262,7 +2262,7 @@ save();
 					elements.each( function (i,e) {						
 						if (J(e).css("display") == "none") {
 							J(e).show();
-							js.Browser.getLocalStorage().setItem(sheet.getPath()+"#"+J(e).data("index")+":hidden", "false");
+							js.Browser.getLocalStorage().removeItem(sheet.getPath()+"#"+J(e).data("index")+":hidden");
 						} else {
 							J(e).hide();
 							js.Browser.getLocalStorage().setItem(sheet.getPath()+"#"+J(e).data("index")+":hidden", "true");
@@ -3024,6 +3024,33 @@ save();
 		var mi_view = new MenuItem({label: "View"});
 		var m_view = new Menu();
 		mi_view.submenu = m_view;
+
+		var mi_collapseAllSeparator = new MenuItem({label: "Collapse All Categories"});
+		mi_collapseAllSeparator.click = function() {
+			var j = J("#content").find("tr[class!='separator'][class!='head']");
+			var sheetPath = J("#content").find("table").attr("sheet");
+			trace(j);
+			j.each( function(i,e) {
+				if (J(e).css("display") != "none") {
+					J(e).hide();
+					js.Browser.getLocalStorage().setItem(sheetPath+"#"+J(e).data("index")+":hidden", "true");
+				}
+			});
+		};
+		m_view.append(mi_collapseAllSeparator);
+
+		var mi_uncollapseAllSeparator = new MenuItem({label: "Uncollapse All Categories"});
+		mi_uncollapseAllSeparator.click = function() {
+			var j = J("#content").find("tr[class!='separator'][class!='head']");
+			var sheetPath = J("#content").find("table").attr("sheet");
+			j.each( function(i,e) {
+				if (J(e).css("display") == "none") {
+					J(e).show();
+					js.Browser.getLocalStorage().removeItem(sheetPath+"#"+J(e).data("index")+":hidden");
+				}
+			});
+		};
+		m_view.append(mi_uncollapseAllSeparator);
 
 		var mi_hideListPreviews = new MenuItem({label: "Hide List Previews", type: checkbox});
 		mi_hideListPreviews.checked = prefs.hideListPreviews;

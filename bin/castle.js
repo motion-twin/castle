@@ -4224,11 +4224,11 @@ Main.prototype = $extend(Model.prototype,{
 				lines.removeClass("filtered");
 			}
 		} else {
+			var sheetPath = $("#content").find("table").attr("sheet");
 			var _g_i1 = 0;
 			var _g_j1 = lines;
 			while(_g_i1 < _g_j1.length) {
 				var t1 = _g_j1[_g_i1++];
-				var sheetPath = $("#content").find("table").attr("sheet");
 				if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + Std.string($(t1).data("index")) + ":hidden") == "true") {
 					t1.classList.add("collapsed");
 				}
@@ -5004,6 +5004,7 @@ Main.prototype = $extend(Model.prototype,{
 		ndel.click = function() {
 			var op = _gthis.prepSnapshot();
 			sheet.deleteLine(index);
+			_gthis.updateCollapsedWithDeleteLine(index);
 			_gthis.commitSnapshot(op);
 		};
 		nsetidx.click = function() {
@@ -5376,7 +5377,7 @@ Main.prototype = $extend(Model.prototype,{
 			v.html(html);
 			v.removeClass("edit");
 			if(rowModifyOp.isUseless()) {
-				console.log("src/Main.hx:1251:","last operation was useless");
+				console.log("src/Main.hx:1252:","last operation was useless");
 				_gthis.opStack.removeLastOp(rowModifyOp);
 			}
 		};
@@ -6082,7 +6083,7 @@ Main.prototype = $extend(Model.prototype,{
 			text = "Working...";
 		}
 		var _gthis = this;
-		console.log("src/Main.hx:1635:","Refresh");
+		console.log("src/Main.hx:1636:","Refresh");
 		var nowLoading = window.document.querySelector("#now-loading-text");
 		nowLoading.innerText = text;
 		nowLoading.className = "";
@@ -7022,7 +7023,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2307:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2308:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -7340,11 +7341,67 @@ Main.prototype = $extend(Model.prototype,{
 	,newLine: function(sheet,index) {
 		var op = this.prepSnapshot();
 		sheet.newLine(index);
+		this.updateCollapsedWithNewLine(index);
 		this.commitSnapshot(op);
 	}
 	,insertLine: function() {
 		if(this.cursor.s != null) {
 			this.newLine(this.cursor.s);
+		}
+	}
+	,updateCollapsedWithNewLine: function(index) {
+		if(index == null) {
+			return;
+		}
+		var lines = $("table.sheet tr").not(".head").not(".separator");
+		var sheetPath = $("#content").find("table").attr("sheet");
+		var newLineIndex = index + 1;
+		var n = lines.length;
+		var currentIndex = 0;
+		var prevIndex;
+		var _g = 0;
+		var _g1 = n - newLineIndex;
+		while(_g < _g1) {
+			var i = _g++;
+			currentIndex = n - i;
+			prevIndex = currentIndex - 1;
+			if(currentIndex > 0) {
+				var row = lines[i];
+				if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + prevIndex + ":hidden") == "true") {
+					row.classList.add("collapsed");
+					js_Browser.getLocalStorage().setItem(sheetPath + "#" + currentIndex + ":hidden","true");
+				} else {
+					row.classList.remove("collapsed");
+					js_Browser.getLocalStorage().removeItem(sheetPath + "#" + currentIndex + ":hidden");
+				}
+				js_Browser.getLocalStorage().removeItem(sheetPath + "#" + prevIndex + ":hidden");
+			}
+		}
+		if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + newLineIndex + ":hidden") == "true") {
+			js_Browser.getLocalStorage().removeItem(sheetPath + "#" + (index + 1) + ":hidden");
+			lines[newLineIndex].classList.remove("collapsed");
+		}
+	}
+	,updateCollapsedWithDeleteLine: function(index) {
+		var lines = $("table.sheet tr").not(".head").not(".separator");
+		var sheetPath = $("#content").find("table").attr("sheet");
+		var newLineIndex = index + 1;
+		var n = lines.length - 1;
+		var nextIndex;
+		var _g = index;
+		var _g1 = n;
+		while(_g < _g1) {
+			var i = _g++;
+			var row = lines[i];
+			nextIndex = i + 1;
+			if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + nextIndex + ":hidden") == "true") {
+				row.classList.add("collapsed");
+				js_Browser.getLocalStorage().setItem(sheetPath + "#" + i + ":hidden","true");
+			} else {
+				row.classList.remove("collapsed");
+				js_Browser.getLocalStorage().removeItem(sheetPath + "#" + i + ":hidden");
+			}
+			js_Browser.getLocalStorage().removeItem(sheetPath + "#" + nextIndex + ":hidden");
 		}
 	}
 	,createSheet: function(name,level) {
@@ -8025,7 +8082,7 @@ Main.prototype = $extend(Model.prototype,{
 		mi_collapseAllSeparator.click = function() {
 			var j4 = $("#content").find("tr[class!='separator'][class!='head']");
 			var sheetPath = $("#content").find("table").attr("sheet");
-			console.log("src/Main.hx:3042:",j4);
+			console.log("src/Main.hx:3099:",j4);
 			j4.each(function(i4,e4) {
 				if(!$(e4).hasClass("collapsed")) {
 					$(e4).addClass("collapsed");

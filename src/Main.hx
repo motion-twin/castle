@@ -325,8 +325,8 @@ class Main extends Model {
 				lines.removeClass("filtered");
 			}
 		} else { // if no filter, reset the collapsed distribution
+			var sheetPath = J("#content").find("table").attr("sheet");
 			for ( t in lines ) {
-				var sheetPath = J("#content").find("table").attr("sheet");
 				if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+J(t).data("index")+":hidden") == "true") {
 					t.classList.add("collapsed");
 				}
@@ -959,6 +959,7 @@ save();
 		ndel.click = function() {
 			var op = prepSnapshot();
 			sheet.deleteLine(index);
+			updateCollapsedWithDeleteLine(index);
 			commitSnapshot(op);
 		};
 		nsetidx.click = function() {
@@ -2289,6 +2290,60 @@ save();
 		inTodo = false;
 	}
 
+	function updateCollapsedWithNewLine(index : Int) {
+		if (index == null)
+			return;
+
+		var lines = J("table.sheet tr").not(".head").not(".separator");
+		var sheetPath = J("#content").find("table").attr("sheet");
+
+		var newLineIndex = index + 1;
+		var n = lines.length;
+		var currentIndex = 0;
+		var prevIndex;
+		for ( i in 0...n-newLineIndex ) {
+			currentIndex = n - i;
+			prevIndex = currentIndex -1;
+			if (currentIndex > 0) {
+				var row = lines[i];
+				if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+prevIndex+":hidden") == "true") {
+					row.classList.add("collapsed");
+					js.Browser.getLocalStorage().setItem(sheetPath+"#"+currentIndex+":hidden", "true");
+				} else {
+					row.classList.remove("collapsed");
+					js.Browser.getLocalStorage().removeItem(sheetPath+"#"+currentIndex+":hidden");
+				}
+				js.Browser.getLocalStorage().removeItem(sheetPath+"#"+prevIndex+":hidden");
+			}
+		}
+
+		if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+(newLineIndex)+":hidden") == "true") {
+			js.Browser.getLocalStorage().removeItem(sheetPath+"#"+(index+1)+":hidden");
+			lines[newLineIndex].classList.remove("collapsed");
+		}
+	}
+
+	function updateCollapsedWithDeleteLine(index : Int) {
+
+		var lines = J("table.sheet tr").not(".head").not(".separator");
+		var sheetPath = J("#content").find("table").attr("sheet");
+
+		var n = lines.length - 1;
+		var nextIndex;
+		for ( i in index...n ) {
+			var row = lines[i];
+			nextIndex = i + 1;
+			if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+nextIndex+":hidden") == "true") {
+				row.classList.add("collapsed");
+				js.Browser.getLocalStorage().setItem(sheetPath+"#"+i+":hidden", "true");
+			} else {
+				row.classList.remove("collapsed");
+				js.Browser.getLocalStorage().removeItem(sheetPath+"#"+i+":hidden");
+			}
+			js.Browser.getLocalStorage().removeItem(sheetPath+"#"+nextIndex+":hidden");
+		}
+	}
+
 	@:keep function openFile( file : String ) {
 		js.node.webkit.Shell.openItem(file);
 	}
@@ -2541,6 +2596,7 @@ save();
 	function newLine( sheet : Sheet, ?index : Int ) {
 		var op = prepSnapshot();
 		sheet.newLine(index);
+		updateCollapsedWithNewLine(index);
 		commitSnapshot(op);
 	}
 

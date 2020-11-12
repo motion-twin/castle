@@ -4214,6 +4214,7 @@ Main.prototype = $extend(Model.prototype,{
 			var _g_j = lines;
 			while(_g_i < _g_j.length) {
 				var t = _g_j[_g_i++];
+				t.classList.remove("collapsed");
 				if(t.textContent.toLowerCase().indexOf(filter) < 0) {
 					t.classList.add("filtered");
 				}
@@ -4221,6 +4222,16 @@ Main.prototype = $extend(Model.prototype,{
 			while(lines.length > 0) {
 				lines = lines.filter(".list").not(".filtered").prev();
 				lines.removeClass("filtered");
+			}
+		} else {
+			var _g_i1 = 0;
+			var _g_j1 = lines;
+			while(_g_i1 < _g_j1.length) {
+				var t1 = _g_j1[_g_i1++];
+				var sheetPath = $("#content").find("table").attr("sheet");
+				if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + Std.string($(t1).data("index")) + ":hidden") == "true") {
+					t1.classList.add("collapsed");
+				}
 			}
 		}
 	}
@@ -5365,7 +5376,7 @@ Main.prototype = $extend(Model.prototype,{
 			v.html(html);
 			v.removeClass("edit");
 			if(rowModifyOp.isUseless()) {
-				console.log("src/Main.hx:1241:","last operation was useless");
+				console.log("src/Main.hx:1251:","last operation was useless");
 				_gthis.opStack.removeLastOp(rowModifyOp);
 			}
 		};
@@ -6071,7 +6082,7 @@ Main.prototype = $extend(Model.prototype,{
 			text = "Working...";
 		}
 		var _gthis = this;
-		console.log("src/Main.hx:1625:","Refresh");
+		console.log("src/Main.hx:1635:","Refresh");
 		var nowLoading = window.document.querySelector("#now-loading-text");
 		nowLoading.innerText = text;
 		nowLoading.className = "";
@@ -6358,7 +6369,7 @@ Main.prototype = $extend(Model.prototype,{
 			l[0].attr("separatorID",snext - 1);
 			var hiddenValue = js_Browser.getLocalStorage().getItem(sheet.getPath() + "#" + index[0] + ":hidden");
 			if(hiddenValue == "true") {
-				l[0].hide();
+				l[0].addClass("collapsed");
 			}
 			if(sheet.sheet.props.level != null) {
 				var c4 = $("<a href='#'>Edit</a>");
@@ -6965,11 +6976,11 @@ Main.prototype = $extend(Model.prototype,{
 						var elements = j.parent().find("tr[class!='separator'][separatorID='" + j.attr("separatorID") + "']");
 						elements.each((function() {
 							return function(i3,e24) {
-								if($(e24).css("display") == "none") {
-									$(e24).show();
+								if($(e24).hasClass("collapsed")) {
+									$(e24).removeClass("collapsed");
 									js_Browser.getLocalStorage().removeItem(sheet.getPath() + "#" + Std.string($(e24).data("index")) + ":hidden");
 								} else {
-									$(e24).hide();
+									$(e24).addClass("collapsed");
 									js_Browser.getLocalStorage().setItem(sheet.getPath() + "#" + Std.string($(e24).data("index")) + ":hidden","true");
 								}
 							};
@@ -7011,7 +7022,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2297:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2307:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -8014,10 +8025,10 @@ Main.prototype = $extend(Model.prototype,{
 		mi_collapseAllSeparator.click = function() {
 			var j4 = $("#content").find("tr[class!='separator'][class!='head']");
 			var sheetPath = $("#content").find("table").attr("sheet");
-			console.log("src/Main.hx:3032:",j4);
+			console.log("src/Main.hx:3042:",j4);
 			j4.each(function(i4,e4) {
-				if($(e4).css("display") != "none") {
-					$(e4).hide();
+				if(!$(e4).hasClass("collapsed")) {
+					$(e4).addClass("collapsed");
 					js_Browser.getLocalStorage().setItem(sheetPath + "#" + Std.string($(e4).data("index")) + ":hidden","true");
 				}
 			});
@@ -8028,8 +8039,8 @@ Main.prototype = $extend(Model.prototype,{
 			var j5 = $("#content").find("tr[class!='separator'][class!='head']");
 			var sheetPath1 = $("#content").find("table").attr("sheet");
 			j5.each(function(i5,e5) {
-				if($(e5).css("display") == "none") {
-					$(e5).show();
+				if($(e5).hasClass("collapsed")) {
+					$(e5).removeClass("collapsed");
 					js_Browser.getLocalStorage().removeItem(sheetPath1 + "#" + Std.string($(e5).data("index")) + ":hidden");
 				}
 			});

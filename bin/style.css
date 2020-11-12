@@ -347,9 +347,10 @@ div#menu ul.sheets li.active {
 	font-weight: bold;
 	padding-left: 20px;
 }
-.castle tr.filtered, .dialog-floating tr.filtered {
+.castle tr.filtered, .castle tr.collapsed, .dialog-floating tr.filtered {
 	display: none;
 }
+
 .castle tr.list, .dialog-floating tr.list {
 	background-color: #CCC;
 	border-bottom: 0;

@@ -311,15 +311,25 @@ class Main extends Model {
 		if( filter != null ) filter = filter.toLowerCase();
 
 		var lines = J("table.sheet tr").not(".head");
+
 		lines.removeClass("filtered");
 		if( filter != null ) {
 			for( t in lines ) {
-				if( t.textContent.toLowerCase().indexOf(filter) < 0 )
+				t.classList.remove("collapsed");
+				if( t.textContent.toLowerCase().indexOf(filter) < 0 ) {
 					t.classList.add("filtered");
+				}
 			}
 			while( lines.length > 0 ) {
 				lines = lines.filter(".list").not(".filtered").prev();
 				lines.removeClass("filtered");
+			}
+		} else { // if no filter, reset the collapsed distribution
+			for ( t in lines ) {
+				var sheetPath = J("#content").find("table").attr("sheet");
+				if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+J(t).data("index")+":hidden") == "true") {
+					t.classList.add("collapsed");
+				}
 			}
 		}
 	}
@@ -1836,7 +1846,7 @@ save();
 			
 			var hiddenValue = js.Browser.getLocalStorage().getItem(sheet.getPath()+"#"+index+":hidden");
 			if (hiddenValue == "true") {
-				l.hide();
+				l.addClass("collapsed");
 			}
 
 			if (sheet.isLevel()) {
@@ -2260,11 +2270,11 @@ save();
 					var j = JTHIS;
 					var elements = j.parent().find("tr[class!='separator'][separatorID='" + j.attr("separatorID") + "']");
 					elements.each( function (i,e) {						
-						if (J(e).css("display") == "none") {
-							J(e).show();
+						if (J(e).hasClass("collapsed")) {
+							J(e).removeClass("collapsed");
 							js.Browser.getLocalStorage().removeItem(sheet.getPath()+"#"+J(e).data("index")+":hidden");
 						} else {
-							J(e).hide();
+							J(e).addClass("collapsed");
 							js.Browser.getLocalStorage().setItem(sheet.getPath()+"#"+J(e).data("index")+":hidden", "true");
 						}
 					});
@@ -3031,8 +3041,8 @@ save();
 			var sheetPath = J("#content").find("table").attr("sheet");
 			trace(j);
 			j.each( function(i,e) {
-				if (J(e).css("display") != "none") {
-					J(e).hide();
+				if (!J(e).hasClass("collapsed")) {
+					J(e).addClass("collapsed");
 					js.Browser.getLocalStorage().setItem(sheetPath+"#"+J(e).data("index")+":hidden", "true");
 				}
 			});
@@ -3044,8 +3054,8 @@ save();
 			var j = J("#content").find("tr[class!='separator'][class!='head']");
 			var sheetPath = J("#content").find("table").attr("sheet");
 			j.each( function(i,e) {
-				if (J(e).css("display") == "none") {
-					J(e).show();
+				if (J(e).hasClass("collapsed")) {
+					J(e).removeClass("collapsed");
 					js.Browser.getLocalStorage().removeItem(sheetPath+"#"+J(e).data("index")+":hidden");
 				}
 			});

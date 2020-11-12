@@ -4903,7 +4903,7 @@ Main.prototype = $extend(Model.prototype,{
 			var id = Main.UID++;
 			return "<div class=\"color\" style=\"background-color:#" + StringTools.hex(v,6) + "\"></div>";
 		case 12:
-			var _g31 = _g.type;
+			var _g51 = _g.type;
 			if(v == "–") {
 				return "&nbsp;";
 			} else {
@@ -5004,7 +5004,6 @@ Main.prototype = $extend(Model.prototype,{
 		ndel.click = function() {
 			var op = _gthis.prepSnapshot();
 			sheet.deleteLine(index);
-			_gthis.updateCollapsedWithDeleteLine(index);
 			_gthis.commitSnapshot(op);
 		};
 		nsetidx.click = function() {
@@ -5051,6 +5050,7 @@ Main.prototype = $extend(Model.prototype,{
 				}
 			}
 			sheet.sheet.props.separatorTitles[sepIndex] = "UNTITLED";
+			_gthis.updateCollapseData(sepIndex,sheet.sheet.props.separatorTitles.length);
 			_gthis.commitSnapshot(op1);
 		};
 		nref.click = function() {
@@ -5383,6 +5383,190 @@ Main.prototype = $extend(Model.prototype,{
 		};
 		var _g21 = column.type;
 		switch(_g21._hx_index) {
+		case 0:case 1:case 3:case 4:case 16:
+			v.empty();
+			var inputBox = $(column.type == cdb_ColumnType.TString ? "<textarea>" : "<input>");
+			v.addClass("edit");
+			inputBox.appendTo(v);
+			if(val != null) {
+				var _g22 = column.type;
+				switch(_g22._hx_index) {
+				case 9:
+					var t = _g22.name;
+					var tmp = this.base.typeValToString(this.base.getCustomType(t),val);
+					inputBox.val(tmp);
+					break;
+				case 16:
+					var tmp1 = JSON.stringify(val);
+					inputBox.val(tmp1);
+					break;
+				default:
+					inputBox.val("" + Std.string(val));
+				}
+			}
+			inputBox.change(function(e) {
+				e.stopPropagation();
+			});
+			inputBox.keydown(function(e1) {
+				switch(e1.keyCode) {
+				case 9:
+					inputBox.blur();
+					_gthis.moveCursor(e1.shiftKey ? -1 : 1,0,false,false);
+					haxe_Timer.delay(function() {
+						$(".cursor").dblclick();
+					},1);
+					e1.preventDefault();
+					break;
+				case 13:
+					if(!inputBox.is("textarea") || !e1.shiftKey && !e1.altKey && !e1.ctrlKey) {
+						inputBox.blur();
+						e1.preventDefault();
+					}
+					break;
+				case 27:
+					editDone();
+					break;
+				case 38:case 40:
+					if(!inputBox.is("textarea")) {
+						inputBox.blur();
+					}
+					return;
+				default:
+				}
+				e1.stopPropagation();
+			});
+			inputBox.blur(function(_) {
+				var newValue = inputBox.val();
+				var oldValue = val;
+				var prevObj;
+				if(column.type == cdb_ColumnType.TId && oldValue != null) {
+					var _this = _gthis.base.getSheet(sheet.sheet.name).index;
+					var key = val;
+					prevObj = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
+				} else {
+					prevObj = null;
+				}
+				var prevTarget = null;
+				if(newValue == "" && column.opt) {
+					if(val != null) {
+						html = null;
+						val = html;
+						Reflect.deleteField(obj,column.name);
+						_gthis.updateClasses(v,column,val);
+						rowModifyOp.commitNewState(_gthis);
+						_gthis.changed(sheet,column,rowIndex,old);
+					}
+				} else {
+					var val2;
+					var _g23 = column.type;
+					switch(_g23._hx_index) {
+					case 0:
+						val2 = _gthis.base.r_ident.match(newValue) ? newValue : null;
+						break;
+					case 3:
+						val2 = Std.parseInt(newValue);
+						break;
+					case 4:
+						var f = parseFloat(newValue);
+						val2 = isNaN(f) ? null : f;
+						break;
+					case 9:
+						var t1 = _g23.name;
+						try {
+							val2 = _gthis.base.parseTypeVal(_gthis.base.getCustomType(t1),newValue);
+						} catch( e2 ) {
+							var e3 = ((e2) instanceof js__$Boot_HaxeError) ? e2.val : e2;
+							val2 = null;
+						}
+						break;
+					case 16:
+						try {
+							val2 = _gthis.base.parseDynamic(newValue);
+						} catch( e4 ) {
+							var e5 = ((e4) instanceof js__$Boot_HaxeError) ? e4.val : e4;
+							val2 = null;
+						}
+						break;
+					default:
+						val2 = newValue;
+					}
+					if(val2 != val && val2 != null) {
+						var _this1 = _gthis.base.getSheet(sheet.sheet.name).index;
+						var key1 = val2;
+						prevTarget = __map_reserved[key1] != null ? _this1.getReserved(key1) : _this1.h[key1];
+						if(column.type == cdb_ColumnType.TId && val != null && (prevObj == null || prevObj.obj == obj)) {
+							var m = new haxe_ds_StringMap();
+							var key2 = val;
+							var value = val2;
+							if(__map_reserved[key2] != null) {
+								m.setReserved(key2,value);
+							} else {
+								m.h[key2] = value;
+							}
+							_gthis.base.updateRefs(sheet,m);
+						}
+						val = val2;
+						obj[column.name] = val;
+						_gthis.updateClasses(v,column,val);
+						rowModifyOp.commitNewState(_gthis);
+						_gthis.changed(sheet,column,rowIndex,old);
+						html = _gthis.valueHtml(column,val,sheet,obj);
+					}
+				}
+				editDone();
+				var tmp2;
+				if(column.type == cdb_ColumnType.TId && prevObj != null && oldValue != val) {
+					var tmp3;
+					if(prevObj.obj == obj) {
+						var _this2 = _gthis.base.getSheet(sheet.sheet.name).index;
+						tmp3 = (__map_reserved[oldValue] != null ? _this2.getReserved(oldValue) : _this2.h[oldValue]) != null;
+					} else {
+						tmp3 = false;
+					}
+					if(!tmp3) {
+						if(prevTarget != null) {
+							var _this3 = _gthis.base.getSheet(sheet.sheet.name).index;
+							var key3 = val;
+							tmp2 = (__map_reserved[key3] != null ? _this3.getReserved(key3) : _this3.h[key3]).obj != prevTarget.obj;
+						} else {
+							tmp2 = false;
+						}
+					} else {
+						tmp2 = true;
+					}
+				} else {
+					tmp2 = false;
+				}
+				if(tmp2) {
+					_gthis.refresh();
+					return;
+				}
+			});
+			var _g24 = column.type;
+			if(_g24._hx_index == 9) {
+				var t2 = _g24.name;
+				var t3 = this.base.getCustomType(t2);
+				inputBox.keyup(function(_1) {
+					var str = inputBox.val();
+					try {
+						if(str != "") {
+							_gthis.base.parseTypeVal(t3,str);
+						}
+						inputBox.removeClass("error");
+					} catch( msg ) {
+						var msg1 = ((msg) instanceof js__$Boot_HaxeError) ? msg.val : msg;
+						if(typeof(msg1) == "string") {
+							_gthis.window.window.alert(msg1);
+							inputBox.addClass("error");
+						} else {
+							throw msg;
+						}
+					}
+				});
+			}
+			inputBox.focus();
+			inputBox.select();
+			break;
 		case 2:
 			if(column.opt && val == false) {
 				val = null;
@@ -5391,8 +5575,8 @@ Main.prototype = $extend(Model.prototype,{
 				val = !val;
 				obj[column.name] = val;
 			}
-			var tmp = _gthis.valueHtml(column,val,sheet,obj);
-			v.html(tmp);
+			var tmp4 = _gthis.valueHtml(column,val,sheet,obj);
+			v.html(tmp4);
 			_gthis.updateClasses(v,column,val);
 			rowModifyOp.commitNewState(_gthis);
 			_gthis.changed(sheet,column,rowIndex,old);
@@ -5403,18 +5587,18 @@ Main.prototype = $extend(Model.prototype,{
 			v.addClass("edit");
 			var select = $("<select>");
 			v.append(select);
-			var _g22 = 0;
+			var _g25 = 0;
 			var _g31 = values.length;
-			while(_g22 < _g31) {
-				var i = _g22++;
-				var tmp1 = $("<option>");
-				var tmp2 = val == i ? "selected" : "_sel";
-				tmp1.attr("value","" + i).attr(tmp2,"selected").text(values[i]).appendTo(select);
+			while(_g25 < _g31) {
+				var i = _g25++;
+				var tmp5 = $("<option>");
+				var tmp6 = val == i ? "selected" : "_sel";
+				tmp5.attr("value","" + i).attr(tmp6,"selected").text(values[i]).appendTo(select);
 			}
 			if(column.opt) {
 				$("<option>").attr("value","-1").text("--- None ---").prependTo(select);
 			}
-			select.change(function(e) {
+			select.change(function(e6) {
 				val = Std.parseInt(select.val());
 				if(val < 0) {
 					val = null;
@@ -5427,26 +5611,26 @@ Main.prototype = $extend(Model.prototype,{
 				rowModifyOp.commitNewState(_gthis);
 				_gthis.changed(sheet,column,rowIndex,old);
 				editDone();
-				e.stopPropagation();
+				e6.stopPropagation();
 			});
-			select.keydown(function(e1) {
-				switch(e1.keyCode) {
+			select.keydown(function(e7) {
+				switch(e7.keyCode) {
 				case 9:
 					select.blur();
-					_gthis.moveCursor(e1.shiftKey ? -1 : 1,0,false,false);
+					_gthis.moveCursor(e7.shiftKey ? -1 : 1,0,false,false);
 					haxe_Timer.delay(function() {
 						$(".cursor").dblclick();
 					},1);
-					e1.preventDefault();
+					e7.preventDefault();
 					break;
 				case 37:case 39:
 					select.blur();
 					return;
 				default:
 				}
-				e1.stopPropagation();
+				e7.stopPropagation();
 			});
-			select.blur(function(_) {
+			select.blur(function(_2) {
 				editDone();
 			});
 			select.focus();
@@ -5463,21 +5647,21 @@ Main.prototype = $extend(Model.prototype,{
 			v.empty();
 			v.addClass("edit");
 			var select1 = $("<select>");
-			var _g23 = [];
+			var _g26 = [];
 			var _g32 = 0;
 			var _g4 = sdat.all;
 			while(_g32 < _g4.length) {
 				var d = _g4[_g32];
 				++_g32;
-				_g23.push({ id : d.id, ico : d.ico, text : d.disp});
+				_g26.push({ id : d.id, ico : d.ico, text : d.disp});
 			}
-			var elts = _g23;
+			var elts = _g26;
 			if(column.opt || val == null || val == "") {
 				elts.unshift({ id : "~", ico : null, text : "--- None ---"});
 			}
 			v.append(select1);
-			select1.change(function(e2) {
-				e2.stopPropagation();
+			select1.change(function(e8) {
+				e8.stopPropagation();
 			});
 			var props = { data : elts};
 			if(sdat.sheet.props.displayIcon != null) {
@@ -5490,7 +5674,7 @@ Main.prototype = $extend(Model.prototype,{
 			select1.select2(props);
 			select1.select2("val",val == null ? "" : val);
 			select1.select2("open");
-			select1.change(function(e3) {
+			select1.change(function(e9) {
 				val = select1.val();
 				if(val == "~") {
 					val = null;
@@ -5504,7 +5688,7 @@ Main.prototype = $extend(Model.prototype,{
 				_gthis.changed(sheet,column,rowIndex,old);
 				editDone();
 			});
-			select1.on("select2:close",null,function(_1) {
+			select1.on("select2:close",null,function(_3) {
 				editDone();
 			});
 			break;
@@ -5529,14 +5713,14 @@ Main.prototype = $extend(Model.prototype,{
 					}
 					val = md5;
 					obj[column.name] = val;
-					var tmp3 = _gthis.valueHtml(column,val,sheet,obj);
-					v.html(tmp3);
+					var tmp7 = _gthis.valueHtml(column,val,sheet,obj);
+					v.html(tmp7);
 					_gthis.updateClasses(v,column,val);
 					rowModifyOp.commitNewState(_gthis);
 					_gthis.changed(sheet,column,rowIndex,old);
 				}
 			} else {
-				var input = $("<input>").attr("type","file").css("display","none").change(function(e4) {
+				var input = $("<input>").attr("type","file").css("display","none").change(function(e10) {
 					var j = $(this);
 					var file1 = j.val();
 					var ext1 = file1.split(".").pop().toLowerCase();
@@ -5570,315 +5754,44 @@ Main.prototype = $extend(Model.prototype,{
 			}
 			break;
 		case 9:
-			var _g33 = _g21.name;
-			v.empty();
-			var inputBox = $(column.type == cdb_ColumnType.TString ? "<textarea>" : "<input>");
-			v.addClass("edit");
-			inputBox.appendTo(v);
-			if(val != null) {
-				var _g24 = column.type;
-				switch(_g24._hx_index) {
-				case 9:
-					var t = _g24.name;
-					var tmp4 = this.base.typeValToString(this.base.getCustomType(t),val);
-					inputBox.val(tmp4);
-					break;
-				case 16:
-					var tmp5 = JSON.stringify(val);
-					inputBox.val(tmp5);
-					break;
-				default:
-					inputBox.val("" + Std.string(val));
-				}
-			}
-			inputBox.change(function(e5) {
-				e5.stopPropagation();
-			});
-			inputBox.keydown(function(e6) {
-				switch(e6.keyCode) {
-				case 9:
-					inputBox.blur();
-					_gthis.moveCursor(e6.shiftKey ? -1 : 1,0,false,false);
-					haxe_Timer.delay(function() {
-						$(".cursor").dblclick();
-					},1);
-					e6.preventDefault();
-					break;
-				case 13:
-					if(!inputBox.is("textarea") || !e6.shiftKey && !e6.altKey && !e6.ctrlKey) {
-						inputBox.blur();
-						e6.preventDefault();
-					}
-					break;
-				case 27:
-					editDone();
-					break;
-				case 38:case 40:
-					if(!inputBox.is("textarea")) {
-						inputBox.blur();
-					}
-					return;
-				default:
-				}
-				e6.stopPropagation();
-			});
-			inputBox.blur(function(_2) {
-				var newValue = inputBox.val();
-				var oldValue = val;
-				var prevObj;
-				if(column.type == cdb_ColumnType.TId && oldValue != null) {
-					var _this = _gthis.base.getSheet(sheet.sheet.name).index;
-					var key = val;
-					prevObj = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
-				} else {
-					prevObj = null;
-				}
-				var prevTarget = null;
-				if(newValue == "" && column.opt) {
-					if(val != null) {
-						html = null;
-						val = html;
-						Reflect.deleteField(obj,column.name);
-						_gthis.updateClasses(v,column,val);
-						rowModifyOp.commitNewState(_gthis);
-						_gthis.changed(sheet,column,rowIndex,old);
-					}
-				} else {
-					var val2;
-					var _g25 = column.type;
-					switch(_g25._hx_index) {
-					case 0:
-						val2 = _gthis.base.r_ident.match(newValue) ? newValue : null;
-						break;
-					case 3:
-						val2 = Std.parseInt(newValue);
-						break;
-					case 4:
-						var f = parseFloat(newValue);
-						val2 = isNaN(f) ? null : f;
-						break;
-					case 9:
-						var t1 = _g25.name;
-						try {
-							val2 = _gthis.base.parseTypeVal(_gthis.base.getCustomType(t1),newValue);
-						} catch( e7 ) {
-							var e8 = ((e7) instanceof js__$Boot_HaxeError) ? e7.val : e7;
-							val2 = null;
-						}
-						break;
-					case 16:
-						try {
-							val2 = _gthis.base.parseDynamic(newValue);
-						} catch( e9 ) {
-							var e10 = ((e9) instanceof js__$Boot_HaxeError) ? e9.val : e9;
-							val2 = null;
-						}
-						break;
-					default:
-						val2 = newValue;
-					}
-					if(val2 != val && val2 != null) {
-						var _this1 = _gthis.base.getSheet(sheet.sheet.name).index;
-						var key1 = val2;
-						prevTarget = __map_reserved[key1] != null ? _this1.getReserved(key1) : _this1.h[key1];
-						if(column.type == cdb_ColumnType.TId && val != null && (prevObj == null || prevObj.obj == obj)) {
-							var m = new haxe_ds_StringMap();
-							var key2 = val;
-							var value = val2;
-							if(__map_reserved[key2] != null) {
-								m.setReserved(key2,value);
-							} else {
-								m.h[key2] = value;
-							}
-							_gthis.base.updateRefs(sheet,m);
-						}
-						val = val2;
-						obj[column.name] = val;
-						_gthis.updateClasses(v,column,val);
-						rowModifyOp.commitNewState(_gthis);
-						_gthis.changed(sheet,column,rowIndex,old);
-						html = _gthis.valueHtml(column,val,sheet,obj);
-					}
-				}
-				editDone();
-				var tmp6;
-				if(column.type == cdb_ColumnType.TId && prevObj != null && oldValue != val) {
-					var tmp7;
-					if(prevObj.obj == obj) {
-						var _this2 = _gthis.base.getSheet(sheet.sheet.name).index;
-						tmp7 = (__map_reserved[oldValue] != null ? _this2.getReserved(oldValue) : _this2.h[oldValue]) != null;
-					} else {
-						tmp7 = false;
-					}
-					if(!tmp7) {
-						if(prevTarget != null) {
-							var _this3 = _gthis.base.getSheet(sheet.sheet.name).index;
-							var key3 = val;
-							tmp6 = (__map_reserved[key3] != null ? _this3.getReserved(key3) : _this3.h[key3]).obj != prevTarget.obj;
-						} else {
-							tmp6 = false;
-						}
-					} else {
-						tmp6 = true;
-					}
-				} else {
-					tmp6 = false;
-				}
-				if(tmp6) {
-					_gthis.refresh();
-					return;
-				}
-			});
-			var _g26 = column.type;
-			if(_g26._hx_index == 9) {
-				var t2 = _g26.name;
-				var t3 = this.base.getCustomType(t2);
-				inputBox.keyup(function(_3) {
-					var str = inputBox.val();
-					try {
-						if(str != "") {
-							_gthis.base.parseTypeVal(t3,str);
-						}
-						inputBox.removeClass("error");
-					} catch( msg ) {
-						var msg1 = ((msg) instanceof js__$Boot_HaxeError) ? msg.val : msg;
-						if(typeof(msg1) == "string") {
-							_gthis.window.window.alert(msg1);
-							inputBox.addClass("error");
-						} else {
-							throw msg;
-						}
-					}
-				});
-			}
-			inputBox.focus();
-			inputBox.select();
-			break;
-		case 10:
-			var values1 = _g21.values;
-			var div = $("<div>").addClass("flagValues");
-			div.click(function(e11) {
-				e11.stopPropagation();
-			});
-			div.dblclick(function(e12) {
-				e12.stopPropagation();
-			});
-			var _g27 = 0;
-			var _g34 = values1.length;
-			while(_g27 < _g34) {
-				var i2 = [_g27++];
-				var input2 = $("<input>");
-				input2.attr("type","checkbox");
-				input2.prop("checked",(val & 1 << i2[0]) != 0);
-				input2.change((function(i3) {
-					return function(e13) {
-						val &= ~(1 << i3[0]);
-						if($(this).prop("checked")) {
-							val |= 1 << i3[0];
-						}
-						e13.stopPropagation();
-					};
-				})(i2));
-				$("<label>").text(values1[i2[0]]).appendTo(div).append(input2);
-			}
-			v.empty();
-			v.append(div);
-			this.cursor.onchange = function() {
-				if(column.opt && val == 0) {
-					val = null;
-					Reflect.deleteField(obj,column.name);
-				} else {
-					obj[column.name] = val;
-				}
-				html = _gthis.valueHtml(column,val,sheet,obj);
-				rowModifyOp.commitNewState(_gthis);
-				editDone();
-			};
-			break;
-		case 11:
-			var id = Std.random(1);
-			v.html("<div class=\"modal\" onclick=\"$('#_c" + id + "').spectrum('toggle')\"></div><input type=\"text\" id=\"_c" + id + "\"/>");
-			var spect = $("#_c" + id);
-			spect.spectrum({ color : "#" + StringTools.hex(val,6), showInput : true, showButtons : true, showInitial : true, preferredFormat : "hex3", change : function() {
-				spect.spectrum("hide");
-			}, hide : function(vcol) {
-				var color = Std.parseInt("0x" + Std.string(vcol.toHex()));
-				val = color;
-				obj[column.name] = color;
-				var tmp8 = _gthis.valueHtml(column,val,sheet,obj);
-				v.html(tmp8);
-				rowModifyOp.commitNewState(_gthis);
-			}});
-			spect.spectrum("show");
-			break;
-		case 12:
-			var _g5 = _g21.type;
-			throw new js__$Boot_HaxeError("assert2");
-		case 13:
-			v.empty();
-			v.off();
-			var tmp9 = _gthis.valueHtml(column,val,sheet,obj);
-			v.html(tmp9);
-			v.find("input").addClass("deletable").change(function(e14) {
-				if(Reflect.field(obj,column.name) != null) {
-					Reflect.deleteField(obj,column.name);
-					var tmp10 = _gthis.valueHtml(column,val,sheet,obj);
-					v.html(tmp10);
-					rowModifyOp.commitNewState(_gthis);
-				}
-			});
-			v.dblclick(function(_4) {
-				_gthis.chooseFile(function(path) {
-					val = path;
-					obj[column.name] = path;
-					var tmp11 = _gthis.valueHtml(column,val,sheet,obj);
-					v.html(tmp11);
-					rowModifyOp.commitNewState(_gthis);
-				});
-			});
-			break;
-		case 8:case 14:case 17:
-			throw new js__$Boot_HaxeError("assert2");
-		case 15:
-			break;
-		case 0:case 1:case 3:case 4:case 16:
+			var _g41 = _g21.name;
 			v.empty();
 			var inputBox1 = $(column.type == cdb_ColumnType.TString ? "<textarea>" : "<input>");
 			v.addClass("edit");
 			inputBox1.appendTo(v);
 			if(val != null) {
-				var _g28 = column.type;
-				switch(_g28._hx_index) {
+				var _g27 = column.type;
+				switch(_g27._hx_index) {
 				case 9:
-					var t4 = _g28.name;
-					var tmp12 = this.base.typeValToString(this.base.getCustomType(t4),val);
-					inputBox1.val(tmp12);
+					var t4 = _g27.name;
+					var tmp8 = this.base.typeValToString(this.base.getCustomType(t4),val);
+					inputBox1.val(tmp8);
 					break;
 				case 16:
-					var tmp13 = JSON.stringify(val);
-					inputBox1.val(tmp13);
+					var tmp9 = JSON.stringify(val);
+					inputBox1.val(tmp9);
 					break;
 				default:
 					inputBox1.val("" + Std.string(val));
 				}
 			}
-			inputBox1.change(function(e15) {
-				e15.stopPropagation();
+			inputBox1.change(function(e11) {
+				e11.stopPropagation();
 			});
-			inputBox1.keydown(function(e16) {
-				switch(e16.keyCode) {
+			inputBox1.keydown(function(e12) {
+				switch(e12.keyCode) {
 				case 9:
 					inputBox1.blur();
-					_gthis.moveCursor(e16.shiftKey ? -1 : 1,0,false,false);
+					_gthis.moveCursor(e12.shiftKey ? -1 : 1,0,false,false);
 					haxe_Timer.delay(function() {
 						$(".cursor").dblclick();
 					},1);
-					e16.preventDefault();
+					e12.preventDefault();
 					break;
 				case 13:
-					if(!inputBox1.is("textarea") || !e16.shiftKey && !e16.altKey && !e16.ctrlKey) {
+					if(!inputBox1.is("textarea") || !e12.shiftKey && !e12.altKey && !e12.ctrlKey) {
 						inputBox1.blur();
-						e16.preventDefault();
+						e12.preventDefault();
 					}
 					break;
 				case 27:
@@ -5891,9 +5804,9 @@ Main.prototype = $extend(Model.prototype,{
 					return;
 				default:
 				}
-				e16.stopPropagation();
+				e12.stopPropagation();
 			});
-			inputBox1.blur(function(_5) {
+			inputBox1.blur(function(_4) {
 				var newValue1 = inputBox1.val();
 				var oldValue1 = val;
 				var prevObj1;
@@ -5916,8 +5829,8 @@ Main.prototype = $extend(Model.prototype,{
 					}
 				} else {
 					var val21;
-					var _g29 = column.type;
-					switch(_g29._hx_index) {
+					var _g28 = column.type;
+					switch(_g28._hx_index) {
 					case 0:
 						val21 = _gthis.base.r_ident.match(newValue1) ? newValue1 : null;
 						break;
@@ -5929,19 +5842,19 @@ Main.prototype = $extend(Model.prototype,{
 						val21 = isNaN(f1) ? null : f1;
 						break;
 					case 9:
-						var t5 = _g29.name;
+						var t5 = _g28.name;
 						try {
 							val21 = _gthis.base.parseTypeVal(_gthis.base.getCustomType(t5),newValue1);
-						} catch( e17 ) {
-							var e18 = ((e17) instanceof js__$Boot_HaxeError) ? e17.val : e17;
+						} catch( e13 ) {
+							var e14 = ((e13) instanceof js__$Boot_HaxeError) ? e13.val : e13;
 							val21 = null;
 						}
 						break;
 					case 16:
 						try {
 							val21 = _gthis.base.parseDynamic(newValue1);
-						} catch( e19 ) {
-							var e20 = ((e19) instanceof js__$Boot_HaxeError) ? e19.val : e19;
+						} catch( e15 ) {
+							var e16 = ((e15) instanceof js__$Boot_HaxeError) ? e15.val : e15;
 							val21 = null;
 						}
 						break;
@@ -5972,39 +5885,39 @@ Main.prototype = $extend(Model.prototype,{
 					}
 				}
 				editDone();
-				var tmp14;
+				var tmp10;
 				if(column.type == cdb_ColumnType.TId && prevObj1 != null && oldValue1 != val) {
-					var tmp15;
+					var tmp11;
 					if(prevObj1.obj == obj) {
 						var _this6 = _gthis.base.getSheet(sheet.sheet.name).index;
-						tmp15 = (__map_reserved[oldValue1] != null ? _this6.getReserved(oldValue1) : _this6.h[oldValue1]) != null;
+						tmp11 = (__map_reserved[oldValue1] != null ? _this6.getReserved(oldValue1) : _this6.h[oldValue1]) != null;
 					} else {
-						tmp15 = false;
+						tmp11 = false;
 					}
-					if(!tmp15) {
+					if(!tmp11) {
 						if(prevTarget1 != null) {
 							var _this7 = _gthis.base.getSheet(sheet.sheet.name).index;
 							var key7 = val;
-							tmp14 = (__map_reserved[key7] != null ? _this7.getReserved(key7) : _this7.h[key7]).obj != prevTarget1.obj;
+							tmp10 = (__map_reserved[key7] != null ? _this7.getReserved(key7) : _this7.h[key7]).obj != prevTarget1.obj;
 						} else {
-							tmp14 = false;
+							tmp10 = false;
 						}
 					} else {
-						tmp14 = true;
+						tmp10 = true;
 					}
 				} else {
-					tmp14 = false;
+					tmp10 = false;
 				}
-				if(tmp14) {
+				if(tmp10) {
 					_gthis.refresh();
 					return;
 				}
 			});
-			var _g210 = column.type;
-			if(_g210._hx_index == 9) {
-				var t6 = _g210.name;
+			var _g29 = column.type;
+			if(_g29._hx_index == 9) {
+				var t6 = _g29.name;
 				var t7 = this.base.getCustomType(t6);
-				inputBox1.keyup(function(_6) {
+				inputBox1.keyup(function(_5) {
 					var str1 = inputBox1.val();
 					try {
 						if(str1 != "") {
@@ -6024,6 +5937,93 @@ Main.prototype = $extend(Model.prototype,{
 			}
 			inputBox1.focus();
 			inputBox1.select();
+			break;
+		case 10:
+			var values1 = _g21.values;
+			var div = $("<div>").addClass("flagValues");
+			div.click(function(e17) {
+				e17.stopPropagation();
+			});
+			div.dblclick(function(e18) {
+				e18.stopPropagation();
+			});
+			var _g210 = 0;
+			var _g33 = values1.length;
+			while(_g210 < _g33) {
+				var i2 = [_g210++];
+				var input2 = $("<input>");
+				input2.attr("type","checkbox");
+				input2.prop("checked",(val & 1 << i2[0]) != 0);
+				input2.change((function(i3) {
+					return function(e19) {
+						val &= ~(1 << i3[0]);
+						if($(this).prop("checked")) {
+							val |= 1 << i3[0];
+						}
+						e19.stopPropagation();
+					};
+				})(i2));
+				$("<label>").text(values1[i2[0]]).appendTo(div).append(input2);
+			}
+			v.empty();
+			v.append(div);
+			this.cursor.onchange = function() {
+				if(column.opt && val == 0) {
+					val = null;
+					Reflect.deleteField(obj,column.name);
+				} else {
+					obj[column.name] = val;
+				}
+				html = _gthis.valueHtml(column,val,sheet,obj);
+				rowModifyOp.commitNewState(_gthis);
+				editDone();
+			};
+			break;
+		case 11:
+			var id = Std.random(1);
+			v.html("<div class=\"modal\" onclick=\"$('#_c" + id + "').spectrum('toggle')\"></div><input type=\"text\" id=\"_c" + id + "\"/>");
+			var spect = $("#_c" + id);
+			spect.spectrum({ color : "#" + StringTools.hex(val,6), showInput : true, showButtons : true, showInitial : true, preferredFormat : "hex3", change : function() {
+				spect.spectrum("hide");
+			}, hide : function(vcol) {
+				var color = Std.parseInt("0x" + Std.string(vcol.toHex()));
+				val = color;
+				obj[column.name] = color;
+				var tmp12 = _gthis.valueHtml(column,val,sheet,obj);
+				v.html(tmp12);
+				rowModifyOp.commitNewState(_gthis);
+			}});
+			spect.spectrum("show");
+			break;
+		case 12:
+			var _g7 = _g21.type;
+			throw new js__$Boot_HaxeError("assert2");
+		case 13:
+			v.empty();
+			v.off();
+			var tmp13 = _gthis.valueHtml(column,val,sheet,obj);
+			v.html(tmp13);
+			v.find("input").addClass("deletable").change(function(e20) {
+				if(Reflect.field(obj,column.name) != null) {
+					Reflect.deleteField(obj,column.name);
+					var tmp14 = _gthis.valueHtml(column,val,sheet,obj);
+					v.html(tmp14);
+					rowModifyOp.commitNewState(_gthis);
+				}
+			});
+			v.dblclick(function(_6) {
+				_gthis.chooseFile(function(path) {
+					val = path;
+					obj[column.name] = path;
+					var tmp15 = _gthis.valueHtml(column,val,sheet,obj);
+					v.html(tmp15);
+					rowModifyOp.commitNewState(_gthis);
+				});
+			});
+			break;
+		case 8:case 14:case 17:
+			throw new js__$Boot_HaxeError("assert2");
+		case 15:
 			break;
 		}
 	}
@@ -6367,9 +6367,10 @@ Main.prototype = $extend(Model.prototype,{
 			lines.push(l[0]);
 			l[0].data("index",index[0]);
 			while(sheet.sheet.separators[snext] == index[0]) ++snext;
-			l[0].attr("separatorID",snext - 1);
-			var hiddenValue = js_Browser.getLocalStorage().getItem(sheet.getPath() + "#" + index[0] + ":hidden");
-			if(hiddenValue == "true") {
+			var separatorID = snext - 1;
+			l[0].attr("separatorID",separatorID);
+			var hiddenValue = js_Browser.getLocalStorage().getItem(sheet.getPath() + "#" + separatorID + ":hidden");
+			if(hiddenValue != null) {
 				l[0].addClass("collapsed");
 			}
 			if(sheet.sheet.props.level != null) {
@@ -6974,15 +6975,21 @@ Main.prototype = $extend(Model.prototype,{
 				sep.click((function() {
 					return function(e23) {
 						var j = $(this);
-						var elements = j.parent().find("tr[class!='separator'][separatorID='" + j.attr("separatorID") + "']");
+						var separatorID1 = j.attr("separatorID");
+						var isCollapsed = js_Browser.getLocalStorage().getItem(sheet.getPath() + "#" + separatorID1 + ":hidden") != null;
+						if(isCollapsed) {
+							js_Browser.getLocalStorage().removeItem(sheet.getPath() + "#" + separatorID1 + ":hidden");
+						} else {
+							js_Browser.getLocalStorage().setItem(sheet.getPath() + "#" + separatorID1 + ":hidden","true");
+						}
+						isCollapsed = !isCollapsed;
+						var elements = j.parent().find("tr[class!='separator'][separatorID='" + separatorID1 + "']");
 						elements.each((function() {
 							return function(i3,e24) {
-								if($(e24).hasClass("collapsed")) {
-									$(e24).removeClass("collapsed");
-									js_Browser.getLocalStorage().removeItem(sheet.getPath() + "#" + Std.string($(e24).data("index")) + ":hidden");
-								} else {
+								if(isCollapsed) {
 									$(e24).addClass("collapsed");
-									js_Browser.getLocalStorage().setItem(sheet.getPath() + "#" + Std.string($(e24).data("index")) + ":hidden","true");
+								} else {
+									$(e24).removeClass("collapsed");
 								}
 							};
 						})());
@@ -7000,6 +7007,23 @@ Main.prototype = $extend(Model.prototype,{
 			t1();
 		}
 		inTodo = false;
+	}
+	,updateCollapseData: function(index,separatorCount) {
+		var sheetPath = $("#content").find("table").attr("sheet");
+		var currentIndex = 0;
+		var prevIndex;
+		var _g = 0;
+		var _g1 = separatorCount - index + 1;
+		while(_g < _g1) {
+			var i = _g++;
+			currentIndex = separatorCount - i;
+			prevIndex = currentIndex - 1;
+			if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + prevIndex + ":hidden") != null) {
+				js_Browser.getLocalStorage().setItem(sheetPath + "#" + currentIndex + ":hidden","true");
+			} else {
+				js_Browser.getLocalStorage().removeItem(sheetPath + "#" + currentIndex + ":hidden");
+			}
+		}
 	}
 	,openFile: function(file) {
 		js_node_webkit_Shell.openItem(file);
@@ -7023,7 +7047,7 @@ Main.prototype = $extend(Model.prototype,{
 			this.cursor.onchange = null;
 			ch();
 		}
-		console.log("src/Main.hx:2308:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
+		console.log("src/Main.hx:2331:","setCursor " + s.sheet.name + " " + x + " " + y + " " + Std.string(sel));
 		if(update) {
 			this.updateCursor();
 		}
@@ -7341,67 +7365,11 @@ Main.prototype = $extend(Model.prototype,{
 	,newLine: function(sheet,index) {
 		var op = this.prepSnapshot();
 		sheet.newLine(index);
-		this.updateCollapsedWithNewLine(index);
 		this.commitSnapshot(op);
 	}
 	,insertLine: function() {
 		if(this.cursor.s != null) {
 			this.newLine(this.cursor.s);
-		}
-	}
-	,updateCollapsedWithNewLine: function(index) {
-		if(index == null) {
-			return;
-		}
-		var lines = $("table.sheet tr").not(".head").not(".separator");
-		var sheetPath = $("#content").find("table").attr("sheet");
-		var newLineIndex = index + 1;
-		var n = lines.length;
-		var currentIndex = 0;
-		var prevIndex;
-		var _g = 0;
-		var _g1 = n - newLineIndex;
-		while(_g < _g1) {
-			var i = _g++;
-			currentIndex = n - i;
-			prevIndex = currentIndex - 1;
-			if(currentIndex > 0) {
-				var row = lines[i];
-				if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + prevIndex + ":hidden") == "true") {
-					row.classList.add("collapsed");
-					js_Browser.getLocalStorage().setItem(sheetPath + "#" + currentIndex + ":hidden","true");
-				} else {
-					row.classList.remove("collapsed");
-					js_Browser.getLocalStorage().removeItem(sheetPath + "#" + currentIndex + ":hidden");
-				}
-				js_Browser.getLocalStorage().removeItem(sheetPath + "#" + prevIndex + ":hidden");
-			}
-		}
-		if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + newLineIndex + ":hidden") == "true") {
-			js_Browser.getLocalStorage().removeItem(sheetPath + "#" + (index + 1) + ":hidden");
-			lines[newLineIndex].classList.remove("collapsed");
-		}
-	}
-	,updateCollapsedWithDeleteLine: function(index) {
-		var lines = $("table.sheet tr").not(".head").not(".separator");
-		var sheetPath = $("#content").find("table").attr("sheet");
-		var newLineIndex = index + 1;
-		var n = lines.length - 1;
-		var nextIndex;
-		var _g = index;
-		var _g1 = n;
-		while(_g < _g1) {
-			var i = _g++;
-			var row = lines[i];
-			nextIndex = i + 1;
-			if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + nextIndex + ":hidden") == "true") {
-				row.classList.add("collapsed");
-				js_Browser.getLocalStorage().setItem(sheetPath + "#" + i + ":hidden","true");
-			} else {
-				row.classList.remove("collapsed");
-				js_Browser.getLocalStorage().removeItem(sheetPath + "#" + i + ":hidden");
-			}
-			js_Browser.getLocalStorage().removeItem(sheetPath + "#" + nextIndex + ":hidden");
 		}
 	}
 	,createSheet: function(name,level) {
@@ -8080,25 +8048,34 @@ Main.prototype = $extend(Model.prototype,{
 		mi_view.submenu = m_view;
 		var mi_collapseAllSeparator = new js_node_webkit_MenuItem({ label : "Collapse All Categories"});
 		mi_collapseAllSeparator.click = function() {
-			var j4 = $("#content").find("tr[class!='separator'][class!='head']");
+			var rows = $("#content").find("tr[class!='separator'][class!='head']");
+			var separators = $("#content").find("tr[class='separator']");
 			var sheetPath = $("#content").find("table").attr("sheet");
-			console.log("src/Main.hx:3099:",j4);
-			j4.each(function(i4,e4) {
-				if(!$(e4).hasClass("collapsed")) {
-					$(e4).addClass("collapsed");
-					js_Browser.getLocalStorage().setItem(sheetPath + "#" + Std.string($(e4).data("index")) + ":hidden","true");
+			separators.each(function(i4,e4) {
+				if(js_Browser.getLocalStorage().getItem(sheetPath + "#" + $(e4).attr("separatorID") + ":hidden") == null) {
+					js_Browser.getLocalStorage().setItem(sheetPath + "#" + $(e4).attr("separatorID") + ":hidden","true");
+				}
+			});
+			rows.each(function(i5,e5) {
+				if(!$(e5).hasClass("collapsed")) {
+					$(e5).addClass("collapsed");
 				}
 			});
 		};
 		m_view.append(mi_collapseAllSeparator);
 		var mi_uncollapseAllSeparator = new js_node_webkit_MenuItem({ label : "Uncollapse All Categories"});
 		mi_uncollapseAllSeparator.click = function() {
-			var j5 = $("#content").find("tr[class!='separator'][class!='head']");
+			var rows1 = $("#content").find("tr[class!='separator'][class!='head']");
+			var separators1 = $("#content").find("tr[class='separator']");
 			var sheetPath1 = $("#content").find("table").attr("sheet");
-			j5.each(function(i5,e5) {
-				if($(e5).hasClass("collapsed")) {
-					$(e5).removeClass("collapsed");
-					js_Browser.getLocalStorage().removeItem(sheetPath1 + "#" + Std.string($(e5).data("index")) + ":hidden");
+			separators1.each(function(i6,e6) {
+				if(js_Browser.getLocalStorage().getItem(sheetPath1 + "#" + $(e6).attr("separatorID") + ":hidden") != null) {
+					js_Browser.getLocalStorage().removeItem(sheetPath1 + "#" + $(e6).attr("separatorID") + ":hidden");
+				}
+			});
+			rows1.each(function(i7,e7) {
+				if($(e7).hasClass("collapsed")) {
+					$(e7).removeClass("collapsed");
 				}
 			});
 		};
@@ -8123,21 +8100,21 @@ Main.prototype = $extend(Model.prototype,{
 		var mi_zoomLevels_h = { };
 		var _g22 = -4;
 		while(_g22 < 7) {
-			var i6 = [_g22++];
-			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "Zoom " + Math.round(Math.pow(1.2,i6[0]) * 100) + "%", type : "checkbox"})];
-			mi_zoom_n[0].click = (function(mi_zoom_n1,i7) {
+			var i8 = [_g22++];
+			var mi_zoom_n = [new js_node_webkit_MenuItem({ label : "Zoom " + Math.round(Math.pow(1.2,i8[0]) * 100) + "%", type : "checkbox"})];
+			mi_zoom_n[0].click = (function(mi_zoom_n1,i9) {
 				return function() {
 					if(mi_zoomLevels_h.hasOwnProperty(_gthis.window.zoomLevel)) {
 						mi_zoomLevels_h[_gthis.window.zoomLevel].checked = false;
 					}
-					_gthis.window.zoomLevel = i7[0];
+					_gthis.window.zoomLevel = i9[0];
 					mi_zoom_n1[0].checked = true;
 					_gthis.prefs.zoomLevel = _gthis.window.zoomLevel;
 					_gthis.savePrefs();
 				};
-			})(mi_zoom_n,i6);
+			})(mi_zoom_n,i8);
 			m_view.append(mi_zoom_n[0]);
-			mi_zoomLevels_h[i6[0]] = mi_zoom_n[0];
+			mi_zoomLevels_h[i8[0]] = mi_zoom_n[0];
 		}
 		if(mi_zoomLevels_h.hasOwnProperty(this.window.zoomLevel)) {
 			mi_zoomLevels_h[this.window.zoomLevel].checked = true;
@@ -9635,10 +9612,8 @@ cdb_Database.prototype = {
 				return false;
 			}
 			break;
-		case 3:case 4:case 11:
-			return 0;
 		case 5:
-			var _g1 = _g.values;
+			var _g3 = _g.values;
 			return 0;
 		case 6:
 			var s = _g.sheet;
@@ -9646,11 +9621,11 @@ cdb_Database.prototype = {
 			var l = s1.sheet.lines[0];
 			var id = "";
 			if(l != null) {
-				var _g2 = 0;
+				var _g1 = 0;
 				var _g11 = s1.sheet.columns;
-				while(_g2 < _g11.length) {
-					var c1 = _g11[_g2];
-					++_g2;
+				while(_g1 < _g11.length) {
+					var c1 = _g11[_g1];
+					++_g1;
 					if(c1.type == cdb_ColumnType.TId) {
 						id = Reflect.field(l,c1.name);
 						break;
@@ -9658,18 +9633,20 @@ cdb_Database.prototype = {
 				}
 			}
 			return id;
+		case 0:case 1:case 7:case 13:
+			return "";
 		case 8:
 			return [];
 		case 9:
-			var _g21 = _g.name;
+			var _g2 = _g.name;
 			return null;
 		case 10:
 			var _g4 = _g.values;
 			return 0;
+		case 3:case 4:case 11:
+			return 0;
 		case 12:
-			var _g3 = _g.type;
-			return "";
-		case 0:case 1:case 7:case 13:
+			var _g5 = _g.type;
 			return "";
 		case 14:case 15:case 16:
 			return null;
@@ -9677,11 +9654,11 @@ cdb_Database.prototype = {
 			var obj = { };
 			if(sheet != null) {
 				var s2 = sheet.base.getSheet(sheet.sheet.name + "@" + c.name);
-				var _g5 = 0;
+				var _g6 = 0;
 				var _g12 = s2.sheet.columns;
-				while(_g5 < _g12.length) {
-					var c2 = _g12[_g5];
-					++_g5;
+				while(_g6 < _g12.length) {
+					var c2 = _g12[_g6];
+					++_g6;
 					if(!c2.opt) {
 						var def = this.getDefault(c2,null,s2);
 						if(def != null) {
@@ -9946,14 +9923,14 @@ cdb_Database.prototype = {
 				};
 				break;
 			case 6:
-				var _g6 = t.sheet;
+				var _g5 = t.sheet;
 				var r_invalid_r1 = new RegExp("[^A-Za-z0-9_]","g".split("u").join(""));
 				conv = function(r1) {
 					return r1.replace(r_invalid_r1,"_");
 				};
 				break;
 			case 12:
-				var _g5 = t.type;
+				var _g7 = t.type;
 				var r_invalid_r2 = new RegExp("[^A-Za-z0-9_]","g".split("u").join(""));
 				conv = function(r2) {
 					return r2.replace(r_invalid_r2,"_");
@@ -10047,7 +10024,7 @@ cdb_Database.prototype = {
 				var values11 = _g2;
 				var values21 = t.values;
 				var map1 = [];
-				var _g61 = 0;
+				var _g6 = 0;
 				var _g3 = [];
 				var _g11 = 0;
 				var _g21 = values11.length;
@@ -10055,7 +10032,7 @@ cdb_Database.prototype = {
 					var i4 = _g11++;
 					_g3.push({ name : values11[i4], i : i4});
 				}
-				var _g7 = _g3;
+				var _g71 = _g3;
 				var _g31 = [];
 				var _g4 = 0;
 				var _g51 = values21.length;
@@ -10063,10 +10040,10 @@ cdb_Database.prototype = {
 					var i5 = _g4++;
 					_g31.push({ name : values21[i5], i : i5});
 				}
-				var _g71 = this.makePairs(_g7,_g31);
-				while(_g61 < _g71.length) {
-					var p = _g71[_g61];
-					++_g61;
+				var _g72 = this.makePairs(_g71,_g31);
+				while(_g6 < _g72.length) {
+					var p = _g72[_g6];
+					++_g6;
 					if(p.b == null) {
 						continue;
 					}
@@ -10092,7 +10069,7 @@ cdb_Database.prototype = {
 			}
 			break;
 		case 6:
-			var _g10 = old.sheet;
+			var _g12 = old.sheet;
 			if(t._hx_index != 1) {
 				return null;
 			}
@@ -10107,24 +10084,24 @@ cdb_Database.prototype = {
 			}
 			break;
 		case 10:
-			var _g72 = old.values;
+			var _g8 = old.values;
 			switch(t._hx_index) {
 			case 3:
-				var values4 = _g72;
+				var values4 = _g8;
 				break;
 			case 10:
-				var values12 = _g72;
+				var values12 = _g8;
 				var values22 = t.values;
 				var map2 = [];
-				var _g62 = 0;
-				var _g8 = [];
-				var _g12 = 0;
+				var _g61 = 0;
+				var _g9 = [];
+				var _g13 = 0;
 				var _g22 = values12.length;
-				while(_g12 < _g22) {
-					var i8 = _g12++;
-					_g8.push({ name : values12[i8], i : i8});
+				while(_g13 < _g22) {
+					var i8 = _g13++;
+					_g9.push({ name : values12[i8], i : i8});
 				}
-				var _g73 = _g8;
+				var _g73 = _g9;
 				var _g32 = [];
 				var _g41 = 0;
 				var _g52 = values22.length;
@@ -10133,9 +10110,9 @@ cdb_Database.prototype = {
 					_g32.push({ name : values22[i9], i : i9});
 				}
 				var _g74 = this.makePairs(_g73,_g32);
-				while(_g62 < _g74.length) {
-					var p1 = _g74[_g62];
-					++_g62;
+				while(_g61 < _g74.length) {
+					var p1 = _g74[_g61];
+					++_g61;
 					if(p1.b == null) {
 						continue;
 					}
@@ -10167,7 +10144,7 @@ cdb_Database.prototype = {
 			}
 			break;
 		case 12:
-			var _g33 = old.type;
+			var _g10 = old.type;
 			if(t._hx_index != 1) {
 				return null;
 			}
@@ -10413,19 +10390,19 @@ cdb_Database.prototype = {
 				return "\"" + val1.split("\\").join("\\\\").split("\"").join("\\\"") + "\"";
 			}
 			break;
-		case 2:case 3:case 4:case 7:
-			return Std.string(val);
 		case 5:
 			var values = t.values;
 			return this.valToString(cdb_ColumnType.TString,values[val],esc);
 		case 6:
-			var _g4 = t.sheet;
+			var _g = t.sheet;
 			if(esc) {
 				return "\"" + Std.string(val) + "\"";
 			} else {
 				return val;
 			}
 			break;
+		case 2:case 3:case 4:case 7:
+			return Std.string(val);
 		case 8:case 17:
 			return "???";
 		case 9:
@@ -10435,10 +10412,10 @@ cdb_Database.prototype = {
 			var values1 = t.values;
 			var v = val;
 			var flags = [];
-			var _g = 0;
-			var _g1 = values1.length;
-			while(_g < _g1) {
-				var i = _g++;
+			var _g1 = 0;
+			var _g11 = values1.length;
+			while(_g1 < _g11) {
+				var i = _g1++;
 				if((v & 1 << i) != 0) {
 					flags.push(this.valToString(cdb_ColumnType.TString,values1[i],esc));
 				}
@@ -10453,7 +10430,7 @@ cdb_Database.prototype = {
 			}
 			break;
 		case 12:
-			var _g2 = t.type;
+			var _g4 = t.type;
 			if(esc) {
 				return "\"" + Std.string(val) + "\"";
 			} else {
@@ -11496,8 +11473,8 @@ cdb_Lang.prototype = {
 					if(x1.nodeType != Xml.Document && x1.nodeType != Xml.Element) {
 						throw new js__$Boot_HaxeError("Invalid nodeType " + _$Xml_XmlType_$Impl_$.toString(x1.nodeType));
 					}
-					var this2 = x1;
-					ref = StringTools.htmlUnescape(haxe_xml__$Access_Access_$Impl_$.get_innerHTML(this2));
+					var this11 = x1;
+					ref = StringTools.htmlUnescape(haxe_xml__$Access_Access_$Impl_$.get_innerHTML(this11));
 				}
 				if(ref != null && ref != Reflect.field(o,c.name)) {
 					path.push(c.name);
@@ -11996,104 +11973,6 @@ cdb_Lz4Reader.prototype = {
 		return out.sub(0,outPos);
 	}
 	,__class__: cdb_Lz4Reader
-};
-var haxe_IMap = function() { };
-$hxClasses["haxe.IMap"] = haxe_IMap;
-haxe_IMap.__name__ = "haxe.IMap";
-haxe_IMap.__isInterface__ = true;
-haxe_IMap.prototype = {
-	__class__: haxe_IMap
-};
-var haxe_ds_StringMap = function() {
-	this.h = { };
-};
-$hxClasses["haxe.ds.StringMap"] = haxe_ds_StringMap;
-haxe_ds_StringMap.__name__ = "haxe.ds.StringMap";
-haxe_ds_StringMap.__interfaces__ = [haxe_IMap];
-haxe_ds_StringMap.prototype = {
-	get: function(key) {
-		if(__map_reserved[key] != null) {
-			return this.getReserved(key);
-		}
-		return this.h[key];
-	}
-	,setReserved: function(key,value) {
-		if(this.rh == null) {
-			this.rh = { };
-		}
-		this.rh["$" + key] = value;
-	}
-	,getReserved: function(key) {
-		if(this.rh == null) {
-			return null;
-		} else {
-			return this.rh["$" + key];
-		}
-	}
-	,existsReserved: function(key) {
-		if(this.rh == null) {
-			return false;
-		}
-		return this.rh.hasOwnProperty("$" + key);
-	}
-	,remove: function(key) {
-		if(__map_reserved[key] != null) {
-			key = "$" + key;
-			if(this.rh == null || !this.rh.hasOwnProperty(key)) {
-				return false;
-			}
-			delete(this.rh[key]);
-			return true;
-		} else {
-			if(!this.h.hasOwnProperty(key)) {
-				return false;
-			}
-			delete(this.h[key]);
-			return true;
-		}
-	}
-	,keys: function() {
-		return HxOverrides.iter(this.arrayKeys());
-	}
-	,arrayKeys: function() {
-		var out = [];
-		for( var key in this.h ) {
-		if(this.h.hasOwnProperty(key)) {
-			out.push(key);
-		}
-		}
-		if(this.rh != null) {
-			for( var key in this.rh ) {
-			if(key.charCodeAt(0) == 36) {
-				out.push(key.substr(1));
-			}
-			}
-		}
-		return out;
-	}
-	,iterator: function() {
-		return new haxe_ds__$StringMap_StringMapIterator(this,this.arrayKeys());
-	}
-	,toString: function() {
-		var s_b = "";
-		s_b += "{";
-		var keys = this.arrayKeys();
-		var _g = 0;
-		var _g1 = keys.length;
-		while(_g < _g1) {
-			var i = _g++;
-			var k = keys[i];
-			s_b += k == null ? "null" : "" + k;
-			s_b += " => ";
-			s_b += Std.string(Std.string(__map_reserved[k] != null ? this.getReserved(k) : this.h[k]));
-			if(i < keys.length - 1) {
-				s_b += ", ";
-			}
-		}
-		s_b += "}";
-		return s_b;
-	}
-	,__class__: haxe_ds_StringMap
 };
 var cdb_MultifileLoadSave = function() { };
 $hxClasses["cdb.MultifileLoadSave"] = cdb_MultifileLoadSave;
@@ -14389,6 +14268,13 @@ haxe_CallStack.makeStack = function(s) {
 		return s;
 	}
 };
+var haxe_IMap = function() { };
+$hxClasses["haxe.IMap"] = haxe_IMap;
+haxe_IMap.__name__ = "haxe.IMap";
+haxe_IMap.__isInterface__ = true;
+haxe_IMap.prototype = {
+	__class__: haxe_IMap
+};
 var haxe__$Int64__$_$_$Int64 = function(high,low) {
 	this.high = high;
 	this.low = low;
@@ -15854,6 +15740,97 @@ haxe_ds__$StringMap_StringMapIterator.prototype = {
 		}
 	}
 	,__class__: haxe_ds__$StringMap_StringMapIterator
+};
+var haxe_ds_StringMap = function() {
+	this.h = { };
+};
+$hxClasses["haxe.ds.StringMap"] = haxe_ds_StringMap;
+haxe_ds_StringMap.__name__ = "haxe.ds.StringMap";
+haxe_ds_StringMap.__interfaces__ = [haxe_IMap];
+haxe_ds_StringMap.prototype = {
+	get: function(key) {
+		if(__map_reserved[key] != null) {
+			return this.getReserved(key);
+		}
+		return this.h[key];
+	}
+	,setReserved: function(key,value) {
+		if(this.rh == null) {
+			this.rh = { };
+		}
+		this.rh["$" + key] = value;
+	}
+	,getReserved: function(key) {
+		if(this.rh == null) {
+			return null;
+		} else {
+			return this.rh["$" + key];
+		}
+	}
+	,existsReserved: function(key) {
+		if(this.rh == null) {
+			return false;
+		}
+		return this.rh.hasOwnProperty("$" + key);
+	}
+	,remove: function(key) {
+		if(__map_reserved[key] != null) {
+			key = "$" + key;
+			if(this.rh == null || !this.rh.hasOwnProperty(key)) {
+				return false;
+			}
+			delete(this.rh[key]);
+			return true;
+		} else {
+			if(!this.h.hasOwnProperty(key)) {
+				return false;
+			}
+			delete(this.h[key]);
+			return true;
+		}
+	}
+	,keys: function() {
+		return HxOverrides.iter(this.arrayKeys());
+	}
+	,arrayKeys: function() {
+		var out = [];
+		for( var key in this.h ) {
+		if(this.h.hasOwnProperty(key)) {
+			out.push(key);
+		}
+		}
+		if(this.rh != null) {
+			for( var key in this.rh ) {
+			if(key.charCodeAt(0) == 36) {
+				out.push(key.substr(1));
+			}
+			}
+		}
+		return out;
+	}
+	,iterator: function() {
+		return new haxe_ds__$StringMap_StringMapIterator(this,this.arrayKeys());
+	}
+	,toString: function() {
+		var s_b = "";
+		s_b += "{";
+		var keys = this.arrayKeys();
+		var _g = 0;
+		var _g1 = keys.length;
+		while(_g < _g1) {
+			var i = _g++;
+			var k = keys[i];
+			s_b += k == null ? "null" : "" + k;
+			s_b += " => ";
+			s_b += Std.string(Std.string(__map_reserved[k] != null ? this.getReserved(k) : this.h[k]));
+			if(i < keys.length - 1) {
+				s_b += ", ";
+			}
+		}
+		s_b += "}";
+		return s_b;
+	}
+	,__class__: haxe_ds_StringMap
 };
 var haxe_io_BytesBuffer = function() {
 	this.pos = 0;
@@ -23388,7 +23365,7 @@ lvl_Palette.prototype = {
 					}
 					break;
 				case 5:
-					var _g31 = _g21.values;
+					var _g4 = _g21.values;
 					if(pick) {
 						var idx = Reflect.field(_gthis.getTileProp(x1,y1),prop.name);
 						_gthis.modeCursor = idx == null ? -1 : idx;
@@ -23409,7 +23386,7 @@ lvl_Palette.prototype = {
 					_gthis.saveTileProps();
 					break;
 				case 6:
-					var _g4 = _g21.sheet;
+					var _g31 = _g21.sheet;
 					var key = prop.name;
 					var _this = _gthis.perTileGfx;
 					var c = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
@@ -23596,11 +23573,11 @@ lvl_Palette.prototype = {
 				tmp1 = true;
 				break;
 			case 5:
-				var _g111 = _g10.values;
+				var _g121 = _g10.values;
 				tmp1 = true;
 				break;
 			case 6:
-				var _g121 = _g10.sheet;
+				var _g111 = _g10.sheet;
 				tmp1 = true;
 				break;
 			default:
@@ -23627,7 +23604,7 @@ lvl_Palette.prototype = {
 			var def = this.getDefault(prop);
 			var _g132 = prop.type;
 			switch(_g132._hx_index) {
-			case 2:
+			case 1:case 3:case 4:case 11:case 13:case 16:
 				var k2 = 0;
 				var _g133 = 0;
 				var _g14 = l.height;
@@ -23642,68 +23619,68 @@ lvl_Palette.prototype = {
 							continue;
 						}
 						var v = Reflect.field(p,prop.name);
-						if(v == def) {
+						if(v == null || v == def) {
 							continue;
 						}
-						this.select.fillRect(x * (tsize + 1),y * (tsize + 1),tsize,tsize,v ? -2131010655 : -2141455455);
+						this.select.fillRect(x * (tsize + 1),y * (tsize + 1),tsize,1,-1);
+						this.select.fillRect(x * (tsize + 1),y * (tsize + 1),1,tsize,-1);
+						this.select.fillRect(x * (tsize + 1),(y + 1) * (tsize + 1) - 1,tsize,1,-1);
+						this.select.fillRect((x + 1) * (tsize + 1) - 1,y * (tsize + 1),1,tsize,-1);
 					}
 				}
 				break;
-			case 5:
-				var _g142 = _g132.values;
+			case 2:
 				var k3 = 0;
 				var _g135 = 0;
-				var _g143 = l.height;
-				while(_g135 < _g143) {
+				var _g142 = l.height;
+				while(_g135 < _g142) {
 					var y1 = _g135++;
 					var _g136 = 0;
-					var _g144 = l.stride;
-					while(_g136 < _g144) {
+					var _g143 = l.stride;
+					while(_g136 < _g143) {
 						var x1 = _g136++;
 						var p1 = l.tileProps.props[k3++];
 						if(p1 == null) {
 							continue;
 						}
 						var v1 = Reflect.field(p1,prop.name);
-						if(v1 == null || v1 == def) {
+						if(v1 == def) {
 							continue;
 						}
-						this.select.fillRect(x1 * (tsize + 1),y1 * (tsize + 1),tsize,tsize,lvl_Palette.colorPalette[v1] | -2147483648);
+						this.select.fillRect(x1 * (tsize + 1),y1 * (tsize + 1),tsize,tsize,v1 ? -2131010655 : -2141455455);
 					}
 				}
 				break;
-			case 6:
-				var _g15 = _g132.sheet;
-				var key1 = prop.name;
-				var _this1 = this.perTileGfx;
-				var gfx = __map_reserved[key1] != null ? _this1.getReserved(key1) : _this1.h[key1];
+			case 5:
+				var _g15 = _g132.values;
 				var k4 = 0;
-				this.select.set_alpha(0.5);
 				var _g137 = 0;
-				var _g145 = l.height;
-				while(_g137 < _g145) {
+				var _g144 = l.height;
+				while(_g137 < _g144) {
 					var y2 = _g137++;
 					var _g138 = 0;
-					var _g146 = l.stride;
-					while(_g138 < _g146) {
+					var _g145 = l.stride;
+					while(_g138 < _g145) {
 						var x2 = _g138++;
 						var p2 = l.tileProps.props[k4++];
 						if(p2 == null) {
 							continue;
 						}
-						var r = Reflect.field(p2,prop.name);
-						var _this2 = gfx.idToIndex;
-						var v2 = __map_reserved[r] != null ? _this2.getReserved(r) : _this2.h[r];
-						if(v2 == null || r == def) {
+						var v2 = Reflect.field(p2,prop.name);
+						if(v2 == null || v2 == def) {
 							continue;
 						}
-						this.select.drawScaled(gfx.images[v2],x2 * (tsize + 1),y2 * (tsize + 1),tsize,tsize);
+						this.select.fillRect(x2 * (tsize + 1),y2 * (tsize + 1),tsize,tsize,lvl_Palette.colorPalette[v2] | -2147483648);
 					}
 				}
-				this.select.set_alpha(1);
 				break;
-			case 1:case 3:case 4:case 11:case 13:case 16:
+			case 6:
+				var _g146 = _g132.sheet;
+				var key1 = prop.name;
+				var _this1 = this.perTileGfx;
+				var gfx = __map_reserved[key1] != null ? _this1.getReserved(key1) : _this1.h[key1];
 				var k5 = 0;
+				this.select.set_alpha(0.5);
 				var _g139 = 0;
 				var _g147 = l.height;
 				while(_g139 < _g147) {
@@ -23716,16 +23693,16 @@ lvl_Palette.prototype = {
 						if(p3 == null) {
 							continue;
 						}
-						var v3 = Reflect.field(p3,prop.name);
-						if(v3 == null || v3 == def) {
+						var r = Reflect.field(p3,prop.name);
+						var _this2 = gfx.idToIndex;
+						var v3 = __map_reserved[r] != null ? _this2.getReserved(r) : _this2.h[r];
+						if(v3 == null || r == def) {
 							continue;
 						}
-						this.select.fillRect(x3 * (tsize + 1),y3 * (tsize + 1),tsize,1,-1);
-						this.select.fillRect(x3 * (tsize + 1),y3 * (tsize + 1),1,tsize,-1);
-						this.select.fillRect(x3 * (tsize + 1),(y3 + 1) * (tsize + 1) - 1,tsize,1,-1);
-						this.select.fillRect((x3 + 1) * (tsize + 1) - 1,y3 * (tsize + 1),1,tsize,-1);
+						this.select.drawScaled(gfx.images[v3],x3 * (tsize + 1),y3 * (tsize + 1),tsize,tsize);
 					}
 				}
+				this.select.set_alpha(1);
 				break;
 			default:
 			}
@@ -23820,6 +23797,12 @@ lvl_Palette.prototype = {
 			if(prop != null) {
 				var _g19 = prop.type;
 				switch(_g19._hx_index) {
+				case 1:case 3:case 4:case 16:
+					m.addClass("m_value");
+					var p4 = this.getTileProp(l.current % l.stride,l.current / l.stride | 0,false);
+					var v4 = p4 == null ? null : Reflect.field(p4,prop.name);
+					m.find("[name=value]").val(prop.type == cdb_ColumnType.TDynamic ? JSON.stringify(v4) : v4 == null ? "" : "" + v4);
+					break;
 				case 5:
 					var values = _g19.values;
 					m.addClass("m_ref");
@@ -23847,7 +23830,7 @@ lvl_Palette.prototype = {
 					}
 					break;
 				case 6:
-					var _g21 = _g19.sheet;
+					var _g201 = _g19.sheet;
 					var key2 = prop.name;
 					var _this3 = this.perTileGfx;
 					var gfx1 = __map_reserved[key2] != null ? _this3.getReserved(key2) : _this3.h[key2];
@@ -23861,8 +23844,8 @@ lvl_Palette.prototype = {
 						});
 					}
 					var _g192 = 0;
-					var _g201 = gfx1.images.length;
-					while(_g192 < _g201) {
+					var _g202 = gfx1.images.length;
+					while(_g192 < _g202) {
 						var i4 = [_g192++];
 						var d1 = $("<div>").addClass("icon").css({ background : "url('" + gfx1.images[i4[0]].getCanvas().toDataURL() + "')"});
 						d1.appendTo(refList1);
@@ -23875,12 +23858,6 @@ lvl_Palette.prototype = {
 							};
 						})(i4));
 					}
-					break;
-				case 1:case 3:case 4:case 16:
-					m.addClass("m_value");
-					var p4 = this.getTileProp(l.current % l.stride,l.current / l.stride | 0,false);
-					var v4 = p4 == null ? null : Reflect.field(p4,prop.name);
-					m.find("[name=value]").val(prop.type == cdb_ColumnType.TDynamic ? JSON.stringify(v4) : v4 == null ? "" : "" + v4);
 					break;
 				default:
 				}
@@ -23895,10 +23872,10 @@ lvl_Palette.prototype = {
 				switch(tobj.t) {
 				case "border":
 					var _g193 = [];
-					var _g202 = 0;
-					while(_g202 < grounds.length) {
-						var g = grounds[_g202];
-						++_g202;
+					var _g203 = 0;
+					while(_g203 < grounds.length) {
+						var g = grounds[_g203];
+						++_g203;
 						_g193.push("<option value=\"" + g + "\">" + g + "</option>");
 					}
 					var opts = _g193.join("");
@@ -24428,8 +24405,8 @@ var Float = Number;
 var Bool = Boolean;
 var Class = { };
 var Enum = { };
-var __map_reserved = {};
 haxe_ds_ObjectMap.count = 0;
+var __map_reserved = {};
 Object.defineProperty(js__$Boot_HaxeError.prototype,"message",{ get : function() {
 	return String(this.val);
 }});

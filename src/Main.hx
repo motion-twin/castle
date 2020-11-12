@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+import js.Browser;
 import ops.FullSnapshot;
 import cdb.Data;
 import cdb.Sheet;
@@ -310,15 +311,25 @@ class Main extends Model {
 		if( filter != null ) filter = filter.toLowerCase();
 
 		var lines = J("table.sheet tr").not(".head");
+
 		lines.removeClass("filtered");
 		if( filter != null ) {
 			for( t in lines ) {
-				if( t.textContent.toLowerCase().indexOf(filter) < 0 )
+				t.classList.remove("collapsed");
+				if( t.textContent.toLowerCase().indexOf(filter) < 0 ) {
 					t.classList.add("filtered");
+				}
 			}
 			while( lines.length > 0 ) {
 				lines = lines.filter(".list").not(".filtered").prev();
 				lines.removeClass("filtered");
+			}
+		} else { // if no filter, reset the collapsed distribution
+			var sheetPath = J("#content").find("table").attr("sheet");
+			for ( t in lines ) {
+				if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+J(t).data("index")+":hidden") == "true") {
+					t.classList.add("collapsed");
+				}
 			}
 		}
 	}
@@ -590,19 +601,6 @@ class Main extends Model {
 		default:
 			sheet.updateValue(c, index, old);
 		}
-		/*
-		save();
-		trace("Chg Row " + sheet.name + " ; " + index);
-
-		if (c.type != TId) {
-			trace("Conservative save");
-//			saveConservative(sheet.name, index, c);
-save();
-		} else {
-			trace("Full save");
-			save();
-		}
-		*/
 	}
 	#end
 
@@ -987,6 +985,7 @@ save();
 					sheet.props.separatorTitles.insert(sepIndex, null);
 			}
 			sheet.props.separatorTitles[sepIndex] = "UNTITLED";
+			updateCollapseData(sepIndex, sheet.props.separatorTitles.length);
 			commitSnapshot(op);
 		};
 		nref.click = function() {
@@ -1821,10 +1820,23 @@ save();
 			cols.append(col);
 		}
 
+		var snext = 0;
 		for( index in 0...sheet.lines.length ) {
 			var l = J("<tr>");
 			lines.push(l);
 			l.data("index", index);
+			
+			//add separatorID to the line
+			while( sheet.separators[snext] == index ) {
+				snext++;
+			}
+			var separatorID = snext -1;
+			l.attr("separatorID", separatorID);
+			
+			var hiddenValue = js.Browser.getLocalStorage().getItem(sheet.getPath()+"#"+separatorID+":hidden");
+			if (hiddenValue != null) {
+				l.addClass("collapsed");
+			}
 
 			if (sheet.isLevel()) {
 				var c = J("<a href='#'>Edit</a>");
@@ -1942,13 +1954,21 @@ save();
 							val = [];
 							Reflect.setField(obj, c.name, val);
 						}
-						psheet = new cdb.Sheet(base,{
-							columns : psheet.columns, // SHARE
-							props : psheet.props, // SHARE
-							name : psheet.name, // same
-							lines : val, // ref
-							separators : [], // none
-						},key, { sheet : sheet, column : cindex, line : index });
+						psheet = new cdb.Sheet(
+							base,
+							{ 	columns : psheet.columns, // SHARE
+								props : psheet.props, // SHARE
+								name : psheet.name, // same
+								lines : val, // ref
+								separators : [], // none
+							},
+							key, 
+							{ 
+								sheet : sheet, 
+								column : cindex, 
+								line : index 
+							}
+						);
 						fillTable(content, psheet);
 						next.insertAfter(l);
 						v.text("...");
@@ -2201,10 +2221,11 @@ save();
 		content.append(cols);
 
 		// Separators
-		var snext = 0;
+		snext = 0;
 		for( i in 0...lines.length ) {
 			while( sheet.separators[snext] == i ) {
-				var sep = J("<tr>").addClass("separator").append('<td colspan="${colCount+1}">').appendTo(content);
+				var sep = J("<tr>").addClass("separator").attr("separatorID", snext);
+				sep.append('<td colspan="${colCount+1}">').appendTo(content);
 				var content = sep.find("td");
 				var title = if( sheet.props.separatorTitles != null ) sheet.props.separatorTitles[snext] else null;
 				if( title != null ) content.text(title);
@@ -2233,6 +2254,27 @@ save();
 						e.stopPropagation();
 					});
 				});
+				sep.click(function(e) {
+					// find the line with the same separatorID and hide or show it
+					var j = JTHIS;
+					var separatorID = j.attr("separatorID");
+					var isCollapsed = js.Browser.getLocalStorage().getItem(sheet.getPath()+"#"+separatorID+":hidden") != null;
+					if(isCollapsed) {
+						js.Browser.getLocalStorage().removeItem(sheet.getPath()+"#"+separatorID+":hidden");
+					} else {
+						js.Browser.getLocalStorage().setItem(sheet.getPath()+"#"+separatorID+":hidden", "true");
+					}
+					isCollapsed = !isCollapsed;
+
+					var elements = j.parent().find("tr[class!='separator'][separatorID='" + separatorID + "']");
+					elements.each( function (i,e) {						
+						if (isCollapsed) {
+							J(e).addClass("collapsed");
+						} else {
+							J(e).removeClass("collapsed");
+						}
+					});
+				});
 				snext++;
 			}
 			content.append(lines[i]);
@@ -2241,6 +2283,21 @@ save();
 		inTodo = true;
 		for( t in todo ) t();
 		inTodo = false;
+	}
+
+	function updateCollapseData(index: Int, separatorCount: Int) {
+		var sheetPath = J("#content").find("table").attr("sheet");
+		var currentIndex = 0;
+		var prevIndex;
+		for ( i in 0...separatorCount-index+1 ) {
+			currentIndex = separatorCount - i;
+			prevIndex = currentIndex -1;
+			if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+prevIndex+":hidden") != null) {
+				js.Browser.getLocalStorage().setItem(sheetPath+"#"+currentIndex+":hidden", "true");
+			} else {
+				js.Browser.getLocalStorage().removeItem(sheetPath+"#"+currentIndex+":hidden");
+			}
+		}
 	}
 
 	@:keep function openFile( file : String ) {
@@ -2988,6 +3045,46 @@ save();
 		var mi_view = new MenuItem({label: "View"});
 		var m_view = new Menu();
 		mi_view.submenu = m_view;
+
+		var mi_collapseAllSeparator = new MenuItem({label: "Collapse All Categories"});
+		mi_collapseAllSeparator.click = function() {
+			var rows = J("#content").find("tr[class!='separator'][class!='head']");
+			var separators = J("#content").find("tr[class='separator']");
+			var sheetPath = J("#content").find("table").attr("sheet");
+			
+			separators.each( function(i,e) {
+				if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+J(e).attr("separatorID")+":hidden") == null) {
+					js.Browser.getLocalStorage().setItem(sheetPath+"#"+J(e).attr("separatorID")+":hidden", "true");
+				}
+			});
+
+			rows.each( function(i,e) {
+				if (!J(e).hasClass("collapsed")) {
+					J(e).addClass("collapsed");
+				}
+			});
+		};
+		m_view.append(mi_collapseAllSeparator);
+
+		var mi_uncollapseAllSeparator = new MenuItem({label: "Uncollapse All Categories"});
+		mi_uncollapseAllSeparator.click = function() {
+			var rows = J("#content").find("tr[class!='separator'][class!='head']");
+			var separators = J("#content").find("tr[class='separator']");
+			var sheetPath = J("#content").find("table").attr("sheet");
+			
+			separators.each( function(i,e) {
+				if (js.Browser.getLocalStorage().getItem(sheetPath+"#"+J(e).attr("separatorID")+":hidden") != null) {
+					js.Browser.getLocalStorage().removeItem(sheetPath+"#"+J(e).attr("separatorID")+":hidden");
+				}
+			});
+
+			rows.each( function(i,e) {
+				if (J(e).hasClass("collapsed")) {
+					J(e).removeClass("collapsed");
+				}
+			});
+		};
+		m_view.append(mi_uncollapseAllSeparator);
 
 		var mi_hideListPreviews = new MenuItem({label: "Hide List Previews", type: checkbox});
 		mi_hideListPreviews.checked = prefs.hideListPreviews;
